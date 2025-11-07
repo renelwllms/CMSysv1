@@ -1,0 +1,27 @@
+{
+  "name": "cafe-management-system",
+  "version": "1.0.0",
+  "description": "Cafe Management System with QR ordering, multi-language support, and kitchen workflow",
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "dev:backend": "cd backend && npm run start:dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "start:backend": "cd backend && npm run start:prod",
+    "start:frontend": "cd frontend && npm run start",
+    "prisma:generate": "cd backend && npx prisma generate",
+    "prisma:migrate": "cd backend && npx prisma migrate dev",
+    "prisma:studio": "cd backend && npx prisma studio",
+    "prisma:seed": "cd backend && npm run seed"
+  },
+  "keywords": [
+    "cafe",
+    "management",
+    "pos",
+    "qr-ordering",
+    "restaurant"
+  ],
+  "author": "",
+  "license": "MIT"
+}

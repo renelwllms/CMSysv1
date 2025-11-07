@@ -1,0 +1,273 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { MenuItem, MenuCategory } from '@/types';
+import { menuService } from '@/services/menu.service';
+
+interface MenuItemFormProps {
+  item?: MenuItem | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormProps) {
+  const [formData, setFormData] = useState({
+    name: '',
+    nameId: '',
+    category: MenuCategory.DRINKS,
+    price: '',
+    description: '',
+    imageUrl: '',
+    stockQty: '',
+    isAvailable: true,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (item) {
+      setFormData({
+        name: item.name,
+        nameId: item.nameId || '',
+        category: item.category,
+        price: item.price.toString(),
+        description: item.description || '',
+        imageUrl: item.imageUrl || '',
+        stockQty: item.stockQty?.toString() || '',
+        isAvailable: item.isAvailable,
+      });
+    }
+  }, [item]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('name', formData.name);
+      if (formData.nameId) formDataToSend.append('nameId', formData.nameId);
+      formDataToSend.append('category', formData.category);
+      formDataToSend.append('price', formData.price);
+      if (formData.description) formDataToSend.append('description', formData.description);
+      if (formData.imageUrl) formDataToSend.append('imageUrl', formData.imageUrl);
+      if (formData.stockQty) formDataToSend.append('stockQty', formData.stockQty);
+      formDataToSend.append('isAvailable', String(formData.isAvailable));
+
+      if (item) {
+        await menuService.update(item.id, formDataToSend);
+      } else {
+        await menuService.create(formDataToSend);
+      }
+
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save menu item');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+    }));
+  };
+
+  const categories = [
+    { value: MenuCategory.DRINKS, label: 'Drinks' },
+    { value: MenuCategory.MAIN_FOODS, label: 'Main Foods' },
+    { value: MenuCategory.SNACKS, label: 'Snacks' },
+    { value: MenuCategory.CABINET_FOOD, label: 'Cabinet Food' },
+    { value: MenuCategory.CAKES, label: 'Cakes' },
+    { value: MenuCategory.GIFTS, label: 'Gifts' },
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-semibold text-gray-900">
+            {item ? 'Edit Menu Item' : 'Add New Menu Item'}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+            disabled={loading}
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Name (English) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Name (English) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="e.g., Cappuccino"
+            />
+          </div>
+
+          {/* Name (Indonesian) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Name (Indonesian)
+            </label>
+            <input
+              type="text"
+              name="nameId"
+              value={formData.nameId}
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="e.g., Kopi Cappuccino"
+            />
+          </div>
+
+          {/* Category and Price */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                {categories.map(cat => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Price (Rp) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                name="price"
+                value={formData.price}
+                onChange={handleChange}
+                required
+                min="0"
+                step="1000"
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="e.g., 25000"
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows={3}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Brief description of the item..."
+            />
+          </div>
+
+          {/* Image URL */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Image URL
+            </label>
+            <input
+              type="url"
+              name="imageUrl"
+              value={formData.imageUrl}
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="https://example.com/image.jpg"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Enter a direct URL to an image
+            </p>
+          </div>
+
+          {/* Stock Quantity */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Stock Quantity
+            </label>
+            <input
+              type="number"
+              name="stockQty"
+              value={formData.stockQty}
+              onChange={handleChange}
+              min="0"
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Leave empty for unlimited stock"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Leave empty if stock is not tracked
+            </p>
+          </div>
+
+          {/* Availability */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              name="isAvailable"
+              checked={formData.isAvailable}
+              onChange={handleChange}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+            <label className="ml-2 block text-sm text-gray-700">
+              Item is available for ordering
+            </label>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Saving...' : (item ? 'Update Item' : 'Create Item')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

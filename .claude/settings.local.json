@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir)",
+      "Bash(npx @nestjs/cli new:*)",
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(npm install:*)",
+      "Bash(mkdir:*)",
+      "Bash(tree:*)",
+      "Bash(dir:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(psql:*)",
+      "Bash(npm run start:dev)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(where psql)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npm run seed:*)",
+      "Bash(curl:*)",
+      "Bash(npm run dev)",
+      "Bash(timeout:*)",
+      "Bash(taskkill:*)",
+      "Bash(npm run dev:backend:*)",
+      "Bash(npm run dev:frontend:*)",
+      "Bash(npx prisma migrate status)",
+      "Bash(npm run prisma:seed:*)",
+      "Bash(nul)",
+      "Bash(git init:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: Complete Cafe Management System\n\nFeatures implemented:\n- Menu Management (with add/edit functionality)\n- Orders Management with real-time updates\n- Kitchen Display System\n- Public QR Code Ordering\n- Table Management with QR code generation\n- Real-time Socket.io WebSocket updates\n- Settings page\n- Multi-language support (EN/ID)\n- Analytics Dashboard\n\nTech Stack:\n- Backend: NestJS, Prisma, PostgreSQL, Socket.io\n- Frontend: Next.js 16, React 19, TypeScript, TailwindCSS\n- Authentication: JWT with role-based access control\n- Real-time: Socket.io for live order updates\n\n🤖 Generated with Claude Code (https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(.gitignore)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

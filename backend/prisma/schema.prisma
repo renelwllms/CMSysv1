@@ -1,0 +1,224 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User roles: ADMIN, STAFF, KITCHEN
+enum UserRole {
+  ADMIN
+  STAFF
+  KITCHEN
+}
+
+// Order status
+enum OrderStatus {
+  PENDING       // Waiting for payment
+  PAID          // Payment confirmed
+  WAITING       // Waiting to be prepared
+  COOKING       // Being prepared
+  COMPLETED     // Ready/Delivered
+  CANCELLED     // Cancelled
+}
+
+// Menu categories
+enum MenuCategory {
+  DRINKS
+  MAIN_FOODS
+  SNACKS
+  CABINET_FOOD
+  CAKES
+  GIFTS
+}
+
+// Payment status
+enum PaymentStatus {
+  PENDING
+  PARTIAL       // For cake down payments
+  PAID
+  FAILED
+}
+
+// Language options
+enum Language {
+  ENGLISH
+  INDONESIAN
+}
+
+// Users (Admin, Staff, Kitchen)
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // hashed with bcrypt
+  fullName  String
+  role      UserRole @default(STAFF)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  orders    Order[]  @relation("StaffOrders")
+}
+
+// Menu Items
+model MenuItem {
+  id          String       @id @default(uuid())
+  name        String
+  nameId      String?      // Indonesian name (optional)
+  description String?
+  descriptionId String?    // Indonesian description
+  price       Decimal      @db.Decimal(10, 2)
+  category    MenuCategory
+  imageUrl    String?      // Local file path
+  stockQty    Int?         // For cabinet food
+  isAvailable Boolean      @default(true)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  orderItems  OrderItem[]
+
+  @@index([category])
+  @@index([isAvailable])
+}
+
+// Tables (for QR codes)
+model Table {
+  id          String   @id @default(uuid())
+  tableNumber String   @unique
+  qrCode      String?  // QR code data or file path
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  orders      Order[]
+}
+
+// Customer Orders
+model Order {
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique // e.g., "ORD-20250105-001"
+  customerName    String
+  customerPhone   String        // WhatsApp number
+  language        Language      @default(ENGLISH)
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  notes           String?
+
+  // For cake orders
+  isCakeOrder     Boolean       @default(false)
+  cakePickupDate  DateTime?
+  cakeNotes       String?
+  downPaymentAmount Decimal?    @db.Decimal(10, 2)
+  downPaymentDueDate DateTime?
+
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  paidAt          DateTime?
+  completedAt     DateTime?
+  autoCleared     Boolean       @default(false)
+  autoClearedAt   DateTime?
+
+  // Relations
+  tableId         String?
+  table           Table?        @relation(fields: [tableId], references: [id])
+  staffId         String?
+  staff           User?         @relation("StaffOrders", fields: [staffId], references: [id])
+  orderItems      OrderItem[]
+  payments        Payment[]
+
+  @@index([orderNumber])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([customerPhone])
+}
+
+// Order Items (products in an order)
+model OrderItem {
+  id         String   @id @default(uuid())
+  quantity   Int
+  unitPrice  Decimal  @db.Decimal(10, 2)
+  subtotal   Decimal  @db.Decimal(10, 2)
+  notes      String?
+
+  // Relations
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([orderId])
+}
+
+// Payment records
+model Payment {
+  id            String        @id @default(uuid())
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentMethod String        // QRIS, BANK_TRANSFER, CASH
+  paymentProof  String?       // File path for proof
+  notes         String?
+  status        PaymentStatus @default(PENDING)
+  paidAt        DateTime?
+
+  // Relations
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+}
+
+// System Settings
+model Settings {
+  id                  String   @id @default(uuid())
+
+  // Business Info
+  businessName        String   @default("My Cafe")
+  businessNameId      String   @default("Kafe Saya")
+  businessAddress     String?
+  businessPhone       String?
+  businessWhatsApp    String?
+  businessEmail       String?
+
+  // Location
+  latitude            Decimal? @db.Decimal(10, 8)
+  longitude           Decimal? @db.Decimal(11, 8)
+
+  // Branding
+  logoUrl             String?
+  themeColor          String   @default("#4F46E5")
+
+  // Bank Account (for cake payments)
+  bankName            String?
+  bankAccountHolder   String?
+  bankAccountNumber   String?
+  bankPaymentInstructions String?
+
+  // Opening Hours
+  openingHours        String?  // JSON string
+
+  // Language
+  defaultLanguage     Language @default(ENGLISH)
+  enableEnglish       Boolean  @default(true)
+  enableIndonesian    Boolean  @default(true)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
