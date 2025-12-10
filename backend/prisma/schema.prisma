@@ -19,12 +19,15 @@ enum UserRole {
 
 // Order status
 enum OrderStatus {
-  PENDING       // Waiting for payment
-  PAID          // Payment confirmed
-  WAITING       // Waiting to be prepared
-  COOKING       // Being prepared
-  COMPLETED     // Ready/Delivered
-  CANCELLED     // Cancelled
+  PENDING           // Waiting for payment
+  PAID              // Payment confirmed
+  PENDING_APPROVAL  // Waiting for staff approval (new)
+  APPROVED          // Approved by staff, ready for kitchen (new)
+  REJECTED          // Rejected by staff (new)
+  WAITING           // Waiting to be prepared
+  COOKING           // Being prepared
+  COMPLETED         // Ready/Delivered
+  CANCELLED         // Cancelled
 }
 
 // Menu categories
@@ -125,9 +128,15 @@ model Order {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   paidAt          DateTime?
+  cookingStartedAt DateTime?
   completedAt     DateTime?
   autoCleared     Boolean       @default(false)
   autoClearedAt   DateTime?
+
+  // Duration tracking (in minutes)
+  preparationDuration Int?      // Time from order creation to cooking started
+  cookingDuration     Int?      // Time from cooking started to completed
+  totalDuration       Int?      // Total time from order creation to completed
 
   // Relations
   tableId         String?
@@ -203,6 +212,7 @@ model Settings {
 
   // Branding
   logoUrl             String?
+  ogImageUrl          String?  // Open Graph image for social sharing
   themeColor          String   @default("#4F46E5")
 
   // Bank Account (for cake payments)
@@ -218,6 +228,28 @@ model Settings {
   defaultLanguage     Language @default(ENGLISH)
   enableEnglish       Boolean  @default(true)
   enableIndonesian    Boolean  @default(true)
+
+  // Order Settings
+  taxRate             Decimal  @default(10) @db.Decimal(5, 2)
+  serviceChargeRate   Decimal  @default(5) @db.Decimal(5, 2)
+
+  // Staff Approval Settings
+  orderApprovalMode          String  @default("DIRECT") // "DIRECT" or "REQUIRES_APPROVAL"
+  autoClearUnapprovedMinutes Int     @default(30)
+
+  // Auto Clearing Settings
+  autoClearingEnabled        Boolean @default(true)
+  normalOrderClearHours      Decimal @default(1) @db.Decimal(5, 2)
+  cakeOrderClearDays         Int     @default(2)
+
+  // Down Payment Settings
+  cakeDownPaymentPercentage  Int     @default(50)
+
+  // Cabinet Foods Settings
+  enableCabinetFoods  Boolean @default(true)
+
+  // Currency Settings
+  currency            String  @default("IDR") // IDR, USD, NZD, etc.
 
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

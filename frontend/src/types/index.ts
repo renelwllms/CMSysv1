@@ -7,6 +7,9 @@ export enum UserRole {
 export enum OrderStatus {
   PENDING = 'PENDING',
   PAID = 'PAID',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
   WAITING = 'WAITING',
   COOKING = 'COOKING',
   COMPLETED = 'COMPLETED',

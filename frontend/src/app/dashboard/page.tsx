@@ -1,19 +1,137 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useSocket } from '@/contexts/SocketContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { formatCurrency } from '@/lib/currency';
+
+interface OrderStats {
+  todayOrders: number;
+  todayRevenue: number;
+  pendingOrders: number;
+  activeOrders: number;
+}
 
 export default function DashboardPage() {
   const { user, isLoading, logout } = useAuth();
+  const { socket, isConnected } = useSocket();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [businessName, setBusinessName] = useState('BrewPoint');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [currency, setCurrency] = useState('IDR');
+  const [stats, setStats] = useState<OrderStats>({
+    todayOrders: 0,
+    todayRevenue: 0,
+    pendingOrders: 0,
+    activeOrders: 0,
+  });
+  const [menuItemsCount, setMenuItemsCount] = useState(0);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/login');
     }
+    // Redirect kitchen users to kitchen display only
+    if (!isLoading && user && user.role === 'KITCHEN') {
+      router.push('/dashboard/kitchen');
+    }
   }, [user, isLoading, router]);
+
+  useEffect(() => {
+    // Fetch business name, logo, and currency from settings
+    const fetchSettings = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        const response = await fetch(`${apiUrl}/settings`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.businessName) {
+            setBusinessName(data.businessName);
+          }
+          if (data.logoUrl) {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000';
+            setLogoUrl(`${baseUrl}${data.logoUrl}`);
+          }
+          if (data.currency) {
+            setCurrency(data.currency);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch settings:', error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const fetchStats = async () => {
+    if (!user) return;
+
+    try {
+      setStatsLoading(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      const token = localStorage.getItem('token');
+
+      const [orderStatsResponse, menuResponse] = await Promise.all([
+        fetch(`${apiUrl}/orders/stats`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }),
+        fetch(`${apiUrl}/menu`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }),
+      ]);
+
+      if (orderStatsResponse.ok) {
+        const orderStats = await orderStatsResponse.json();
+        setStats(orderStats);
+      }
+
+      if (menuResponse.ok) {
+        const menuItems = await menuResponse.json();
+        setMenuItemsCount(menuItems.length);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchStats();
+    }
+  }, [user]);
+
+  // Socket.io real-time updates
+  useEffect(() => {
+    if (!socket || !user) return;
+
+    const handleOrderUpdate = () => {
+      fetchStats(); // Reload stats when any order event occurs
+    };
+
+    socket.on('order:created', handleOrderUpdate);
+    socket.on('order:statusChanged', handleOrderUpdate);
+    socket.on('order:paymentUpdated', handleOrderUpdate);
+    socket.on('order:deleted', handleOrderUpdate);
+
+    return () => {
+      socket.off('order:created', handleOrderUpdate);
+      socket.off('order:statusChanged', handleOrderUpdate);
+      socket.off('order:paymentUpdated', handleOrderUpdate);
+      socket.off('order:deleted', handleOrderUpdate);
+    };
+  }, [socket, user]);
 
   if (isLoading) {
     return (
@@ -30,12 +148,13 @@ export default function DashboardPage() {
     return null;
   }
 
-  const stats = [
+  const allDashboardStats = [
     {
-      name: 'Total Orders',
-      value: '0',
-      change: '+0%',
-      changeType: 'increase',
+      name: 'Today\'s Orders',
+      value: statsLoading ? '...' : stats.todayOrders.toString(),
+      change: '',
+      changeType: 'neutral',
+      roles: ['ADMIN', 'STAFF'], // Visible to both
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -44,9 +163,10 @@ export default function DashboardPage() {
     },
     {
       name: 'Menu Items',
-      value: '13',
-      change: '+2',
-      changeType: 'increase',
+      value: statsLoading ? '...' : menuItemsCount.toString(),
+      change: '',
+      changeType: 'neutral',
+      roles: ['ADMIN', 'STAFF'],
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -54,21 +174,23 @@ export default function DashboardPage() {
       ),
     },
     {
-      name: 'Active Tables',
-      value: '0',
-      change: '0',
-      changeType: 'neutral',
+      name: 'Pending Payment',
+      value: statsLoading ? '...' : stats.pendingOrders.toString(),
+      change: stats.pendingOrders > 0 ? 'Awaiting Payment' : '',
+      changeType: stats.pendingOrders > 0 ? 'neutral' : 'neutral',
+      roles: ['ADMIN', 'STAFF'],
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
     },
     {
-      name: 'Revenue',
-      value: '$0',
-      change: '+0%',
+      name: 'Today\'s Revenue',
+      value: statsLoading ? '...' : formatCurrency(stats.todayRevenue, currency),
+      change: '',
       changeType: 'increase',
+      roles: ['ADMIN'], // Only visible to admin
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -77,11 +199,17 @@ export default function DashboardPage() {
     },
   ];
 
-  const quickActions = [
+  // Filter stats based on user role
+  const dashboardStats = allDashboardStats.filter(stat =>
+    stat.roles.includes(user?.role || 'ADMIN')
+  );
+
+  const allQuickActions = [
     {
       name: 'New Order',
       description: 'Create a new customer order',
       href: '/dashboard/orders',
+      roles: ['ADMIN', 'STAFF'],
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -93,6 +221,7 @@ export default function DashboardPage() {
       name: 'Manage Menu',
       description: 'Update menu items and prices',
       href: '/dashboard/menu',
+      roles: ['ADMIN', 'STAFF'],
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -104,6 +233,7 @@ export default function DashboardPage() {
       name: 'View Tables',
       description: 'Manage table reservations',
       href: '/dashboard/tables',
+      roles: ['ADMIN', 'STAFF'],
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -115,6 +245,7 @@ export default function DashboardPage() {
       name: 'Kitchen View',
       description: 'Monitor kitchen orders',
       href: '/dashboard/kitchen',
+      roles: ['ADMIN', 'STAFF'],
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -122,7 +253,49 @@ export default function DashboardPage() {
       ),
       color: 'bg-orange-500',
     },
+    {
+      name: 'Customers',
+      description: 'View customer directory',
+      href: '/dashboard/customers',
+      roles: ['ADMIN'],
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      ),
+      color: 'bg-teal-500',
+    },
+    {
+      name: 'Settings',
+      description: 'Configure business settings',
+      href: '/dashboard/settings',
+      roles: ['ADMIN'],
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+      color: 'bg-gray-500',
+    },
+    {
+      name: 'Analytics',
+      description: 'View sales reports',
+      href: '/dashboard/analytics',
+      roles: ['ADMIN'],
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+      color: 'bg-blue-500',
+    },
   ];
+
+  // Filter quick actions based on user role
+  const quickActions = allQuickActions.filter(action =>
+    action.roles.includes(user?.role || 'ADMIN')
+  );
 
   const recentActivity = [
     { id: 1, action: 'System initialized', time: 'Just now', user: 'System' },
@@ -138,10 +311,14 @@ export default function DashboardPage() {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0 flex items-center">
-                <svg className="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-                <span className="ml-2 text-xl font-bold text-gray-900">Cafe Management</span>
+                {logoUrl ? (
+                  <img src={logoUrl} alt={businessName} className="h-8 w-auto" />
+                ) : (
+                  <svg className="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                )}
+                <span className="ml-2 text-xl font-bold text-gray-900">{businessName}</span>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -180,8 +357,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-          {stats.map((stat) => (
+        <div className={`grid grid-cols-1 gap-6 sm:grid-cols-2 ${user?.role === 'STAFF' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} mb-8`}>
+          {dashboardStats.map((stat) => (
             <div
               key={stat.name}
               className="bg-white overflow-hidden shadow-sm rounded-lg hover:shadow-md transition-shadow duration-200"

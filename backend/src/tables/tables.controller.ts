@@ -42,8 +42,22 @@ export class TablesController {
   }
 
   @Get(':id/qr-code')
-  getQRCodeData(@Param('id') id: string) {
-    return this.tablesService.getQRCodeData(id);
+  async getQRCodeData(@Param('id') id: string, @Res() res: Response) {
+    const table = await this.tablesService.findOne(id);
+
+    if (!table.qrCode) {
+      return res.status(404).json({ message: 'QR code not found' });
+    }
+
+    const qrCodePath = path.join(process.cwd(), table.qrCode);
+
+    if (!fs.existsSync(qrCodePath)) {
+      return res.status(404).json({ message: 'QR code file not found' });
+    }
+
+    // Serve the QR code image directly
+    res.setHeader('Content-Type', 'image/png');
+    res.sendFile(qrCodePath);
   }
 
   @Get(':id/qr-code/download')

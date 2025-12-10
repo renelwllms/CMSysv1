@@ -8,9 +8,11 @@ import {
   Query,
   UseGuards,
   Delete,
+  Put,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -59,6 +61,14 @@ export class OrdersController {
     return this.ordersService.getKitchenOrders();
   }
 
+  // Kitchen - get kitchen statistics
+  @Get('kitchen/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.KITCHEN)
+  getKitchenStats() {
+    return this.ordersService.getKitchenStats();
+  }
+
   // Staff/Admin - get order stats
   @Get('stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -67,10 +77,34 @@ export class OrdersController {
     return this.ordersService.getOrderStats();
   }
 
+  // Staff/Admin - get analytics data
+  @Get('analytics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  getAnalytics() {
+    return this.ordersService.getAnalytics();
+  }
+
+  // Admin - get all customers
+  @Get('customers/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  getAllCustomers() {
+    return this.ordersService.getAllCustomers();
+  }
+
   // Get single order
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.ordersService.findOne(id);
+  }
+
+  // Staff/Admin - update order details
+  @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
+    return this.ordersService.update(id, updateOrderDto);
   }
 
   // Staff/Admin/Kitchen - update order status
@@ -99,5 +133,21 @@ export class OrdersController {
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   cancelOrder(@Param('id') id: string) {
     return this.ordersService.cancelOrder(id);
+  }
+
+  // Staff/Admin - approve order
+  @Patch(':id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  approveOrder(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.ordersService.approveOrder(id, user.id);
+  }
+
+  // Staff/Admin - reject order
+  @Patch(':id/reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  rejectOrder(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.ordersService.rejectOrder(id, user.id);
   }
 }

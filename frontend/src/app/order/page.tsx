@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { menuService } from '@/services/menu.service';
 import { ordersService, CreateOrderData } from '@/services/orders.service';
 import { MenuItem, MenuCategory } from '@/types';
+import { formatCurrency } from '@/lib/currency';
 
 interface CartItem {
   menuItem: MenuItem;
@@ -13,7 +14,7 @@ interface CartItem {
   notes: string;
 }
 
-export default function PublicOrderPage() {
+function PublicOrderPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tableId = searchParams.get('table');
@@ -31,14 +32,34 @@ export default function PublicOrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
+  const [enableCabinetFoods, setEnableCabinetFoods] = useState(true);
+  const [currency, setCurrency] = useState<string>('IDR');
+  const [showSummary, setShowSummary] = useState(false);
 
   useEffect(() => {
+    loadSettings();
     loadMenu();
   }, []);
 
   useEffect(() => {
     filterItems();
-  }, [menuItems, selectedCategory]);
+  }, [menuItems, selectedCategory, enableCabinetFoods]);
+
+  const loadSettings = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      const response = await fetch(`${apiUrl}/settings`, {
+        method: 'GET',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setEnableCabinetFoods(data.enableCabinetFoods ?? true);
+        setCurrency(data.currency || 'IDR');
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
 
   const loadMenu = async () => {
     try {
@@ -53,10 +74,21 @@ export default function PublicOrderPage() {
   };
 
   const filterItems = () => {
+    // Cabinet food categories that should be filtered based on settings
+    const cabinetCategories = ['CABINET_FOOD', 'CAKES', 'DRINKS', 'GIFTS'];
+
+    let items = menuItems;
+
+    // Filter out cabinet food categories if disabled
+    if (!enableCabinetFoods) {
+      items = items.filter(item => !cabinetCategories.includes(item.category));
+    }
+
+    // Apply category filter
     if (selectedCategory === 'ALL') {
-      setFilteredItems(menuItems);
+      setFilteredItems(items);
     } else {
-      setFilteredItems(menuItems.filter(item => item.category === selectedCategory));
+      setFilteredItems(items.filter(item => item.category === selectedCategory));
     }
   };
 
@@ -98,6 +130,21 @@ export default function PublicOrderPage() {
     return cart.reduce((total, item) => total + (item.menuItem.price * item.quantity), 0);
   };
 
+  const handleProceedToSummary = () => {
+    if (!customerName.trim() || !customerPhone.trim()) {
+      alert('Please enter your name and phone number');
+      return;
+    }
+
+    if (cart.length === 0) {
+      alert('Your cart is empty');
+      return;
+    }
+
+    setShowCart(false);
+    setShowSummary(true);
+  };
+
   const handleSubmitOrder = async () => {
     if (!customerName.trim() || !customerPhone.trim()) {
       alert('Please enter your name and phone number');
@@ -111,10 +158,13 @@ export default function PublicOrderPage() {
 
     try {
       setSubmitting(true);
+      // Convert frontend language format ('en'/'id') to backend format ('ENGLISH'/'INDONESIAN')
+      const backendLanguage = language === 'en' ? 'ENGLISH' : 'INDONESIAN';
+
       const orderData: CreateOrderData = {
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
-        language: language,
+        language: backendLanguage,
         tableId: tableId || undefined,
         notes: orderNotes.trim() || undefined,
         items: cart.map(item => ({
@@ -283,7 +333,7 @@ export default function PublicOrderPage() {
                 <div className="relative h-40 bg-gray-200">
                   {item.imageUrl ? (
                     <img
-                      src={item.imageUrl}
+                      src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000'}${item.imageUrl}`}
                       alt={item.name}
                       className="w-full h-full object-cover"
                     />
@@ -305,7 +355,7 @@ export default function PublicOrderPage() {
                   )}
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-indigo-600">
-                      Rp {item.price.toLocaleString()}
+                      {formatCurrency(Number(item.price), currency)}
                     </span>
                     <button
                       onClick={() => addToCart(item)}
@@ -346,9 +396,26 @@ export default function PublicOrderPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                   <p className="mt-4 text-gray-500">Your cart is empty</p>
+                  <button
+                    onClick={() => setShowCart(false)}
+                    className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
+                  >
+                    Browse Menu
+                  </button>
                 </div>
               ) : (
                 <>
+                  {/* Continue Shopping Button */}
+                  <button
+                    onClick={() => setShowCart(false)}
+                    className="w-full mb-4 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium flex items-center justify-center space-x-2"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    <span>Add More Items / Continue Shopping</span>
+                  </button>
+
                   {/* Cart Items */}
                   <div className="space-y-4 mb-6">
                     {cart.map((item) => (
@@ -357,7 +424,7 @@ export default function PublicOrderPage() {
                           <div className="flex-1">
                             <h4 className="font-semibold text-gray-900">{item.menuItem.name}</h4>
                             <p className="text-sm text-gray-600">
-                              Rp {item.menuItem.price.toLocaleString()}
+                              {formatCurrency(Number(item.menuItem.price), currency)}
                             </p>
                           </div>
                           <button
@@ -384,7 +451,7 @@ export default function PublicOrderPage() {
                             +
                           </button>
                           <span className="flex-1 text-right font-semibold text-indigo-600">
-                            Rp {(item.menuItem.price * item.quantity).toLocaleString()}
+                            {formatCurrency(Number(item.menuItem.price) * item.quantity, currency)}
                           </span>
                         </div>
                         <input
@@ -431,18 +498,18 @@ export default function PublicOrderPage() {
                     <div className="flex justify-between items-center text-lg font-bold">
                       <span>Total</span>
                       <span className="text-indigo-600">
-                        Rp {getTotalAmount().toLocaleString()}
+                        {formatCurrency(getTotalAmount(), currency)}
                       </span>
                     </div>
                   </div>
 
-                  {/* Place Order Button */}
+                  {/* Review Order Button */}
                   <button
-                    onClick={handleSubmitOrder}
-                    disabled={submitting || cart.length === 0}
+                    onClick={handleProceedToSummary}
+                    disabled={cart.length === 0}
                     className="w-full py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {submitting ? 'Placing Order...' : 'Place Order'}
+                    Review Order
                   </button>
                 </>
               )}
@@ -450,6 +517,115 @@ export default function PublicOrderPage() {
           </div>
         </div>
       )}
+
+      {/* Order Summary Modal */}
+      {showSummary && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Order Summary</h2>
+
+              {/* Customer Info */}
+              <div className="mb-6 bg-gray-50 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Customer Information</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Name:</span>
+                    <span className="font-medium">{customerName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Phone:</span>
+                    <span className="font-medium">{customerPhone}</span>
+                  </div>
+                  {tableId && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Table:</span>
+                      <span className="font-medium">Table Order</span>
+                    </div>
+                  )}
+                  {orderNotes && (
+                    <div>
+                      <div className="text-gray-600 mb-1">Notes:</div>
+                      <div className="font-medium">{orderNotes}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Order Items */}
+              <div className="mb-6">
+                <h3 className="font-semibold text-gray-900 mb-3">Order Items</h3>
+                <div className="space-y-3">
+                  {cart.map((item) => (
+                    <div key={item.menuItem.id} className="flex justify-between items-start p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{item.menuItem.name}</div>
+                        <div className="text-sm text-gray-600">
+                          Qty: {item.quantity} × {formatCurrency(Number(item.menuItem.price), currency)}
+                        </div>
+                        {item.notes && (
+                          <div className="text-xs text-gray-500 mt-1">Note: {item.notes}</div>
+                        )}
+                      </div>
+                      <div className="font-semibold text-indigo-600">
+                        {formatCurrency(Number(item.menuItem.price) * item.quantity, currency)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Total */}
+              <div className="border-t pt-4 mb-6">
+                <div className="flex justify-between items-center text-xl font-bold">
+                  <span>Total Amount</span>
+                  <span className="text-indigo-600">
+                    {formatCurrency(getTotalAmount(), currency)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => {
+                    setShowSummary(false);
+                    setShowCart(true);
+                  }}
+                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                >
+                  Edit Order
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowSummary(false);
+                    await handleSubmitOrder();
+                  }}
+                  disabled={submitting}
+                  className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? 'Submitting...' : 'Submit Order'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function PublicOrderPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 to-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading menu...</p>
+        </div>
+      </div>
+    }>
+      <PublicOrderPageContent />
+    </Suspense>
   );
 }

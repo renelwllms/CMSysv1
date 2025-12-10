@@ -2,15 +2,17 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useSocket } from '@/contexts/SocketContext';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
 import { ordersService } from '@/services/orders.service';
 import { Order, OrderStatus, PaymentStatus } from '@/types';
+import { formatCurrency } from '@/lib/currency';
 
-export default function OrdersManagementPage() {
+function OrdersManagementPageContent() {
   const { user, isLoading } = useAuth();
   const { socket, isConnected } = useSocket();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -19,16 +21,40 @@ export default function OrdersManagementPage() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [currency, setCurrency] = useState<string>('IDR');
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/login');
     }
+    // Redirect kitchen users to kitchen display only
+    if (!isLoading && user && user.role === 'KITCHEN') {
+      router.push('/dashboard/kitchen');
+    }
   }, [user, isLoading, router]);
 
   useEffect(() => {
+    loadSettings();
     loadOrders();
-  }, []);
+    // Check if we have a customer query parameter
+    const customerPhone = searchParams.get('customer');
+    if (customerPhone) {
+      setSearchTerm(customerPhone);
+    }
+  }, [searchParams]);
+
+  const loadSettings = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      const response = await fetch(`${apiUrl}/settings`);
+      if (response.ok) {
+        const data = await response.json();
+        setCurrency(data.currency || 'IDR');
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
 
   useEffect(() => {
     filterOrders();
@@ -139,10 +165,44 @@ export default function OrdersManagementPage() {
     }
   };
 
+  const handleApproveOrder = async (orderId: string) => {
+    try {
+      await ordersService.approve(orderId);
+      await loadOrders();
+      if (selectedOrder?.id === orderId) {
+        const updated = await ordersService.getById(orderId);
+        setSelectedOrder(updated);
+      }
+    } catch (error) {
+      console.error('Failed to approve order:', error);
+      alert('Failed to approve order');
+    }
+  };
+
+  const handleRejectOrder = async (orderId: string) => {
+    if (!confirm('Are you sure you want to reject this order? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      await ordersService.reject(orderId);
+      await loadOrders();
+      if (selectedOrder?.id === orderId) {
+        setShowDetails(false);
+        setSelectedOrder(null);
+      }
+    } catch (error) {
+      console.error('Failed to reject order:', error);
+      alert('Failed to reject order');
+    }
+  };
+
   const getStatusColor = (status: OrderStatus) => {
     const colors = {
       [OrderStatus.PENDING]: 'bg-gray-100 text-gray-800',
       [OrderStatus.PAID]: 'bg-blue-100 text-blue-800',
+      [OrderStatus.PENDING_APPROVAL]: 'bg-purple-100 text-purple-800',
+      [OrderStatus.APPROVED]: 'bg-teal-100 text-teal-800',
+      [OrderStatus.REJECTED]: 'bg-red-100 text-red-800',
       [OrderStatus.WAITING]: 'bg-yellow-100 text-yellow-800',
       [OrderStatus.COOKING]: 'bg-orange-100 text-orange-800',
       [OrderStatus.COMPLETED]: 'bg-green-100 text-green-800',
@@ -201,6 +261,19 @@ export default function OrdersManagementPage() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Create Order Button */}
+        <div className="mb-6">
+          <button
+            onClick={() => router.push('/dashboard/orders/new')}
+            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center space-x-2"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Create New Order</span>
+          </button>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-sm">
@@ -242,6 +315,9 @@ export default function OrdersManagementPage() {
                 <option value="ALL">All Status</option>
                 <option value={OrderStatus.PENDING}>Pending</option>
                 <option value={OrderStatus.PAID}>Paid</option>
+                <option value={OrderStatus.PENDING_APPROVAL}>Pending Approval</option>
+                <option value={OrderStatus.APPROVED}>Approved</option>
+                <option value={OrderStatus.REJECTED}>Rejected</option>
                 <option value={OrderStatus.WAITING}>Waiting</option>
                 <option value={OrderStatus.COOKING}>Cooking</option>
                 <option value={OrderStatus.COMPLETED}>Completed</option>
@@ -345,7 +421,7 @@ export default function OrdersManagementPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-semibold text-gray-900">
-                          Rp {order.totalAmount.toLocaleString()}
+                          {formatCurrency(order.totalAmount, currency)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -368,6 +444,33 @@ export default function OrdersManagementPage() {
                         >
                           View
                         </button>
+                        {order.status === OrderStatus.PENDING_APPROVAL && (
+                          <>
+                            <button
+                              onClick={() => handleApproveOrder(order.id)}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectOrder(order.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        {order.status !== OrderStatus.COMPLETED &&
+                         order.status !== OrderStatus.CANCELLED &&
+                         order.status !== OrderStatus.REJECTED &&
+                         order.status !== OrderStatus.COOKING && (
+                          <button
+                            onClick={() => router.push(`/dashboard/orders/edit/${order.id}`)}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            Edit
+                          </button>
+                        )}
                         {order.paymentStatus !== PaymentStatus.PAID && (
                           <button
                             onClick={() => handleMarkAsPaid(order.id)}
@@ -451,10 +554,10 @@ export default function OrdersManagementPage() {
                   <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 rounded">
                     <div>
                       <div className="font-medium">{item.menuItem?.name || 'Unknown Item'}</div>
-                      <div className="text-sm text-gray-600">Qty: {item.quantity} × Rp {item.unitPrice.toLocaleString()}</div>
+                      <div className="text-sm text-gray-600">Qty: {item.quantity} × {formatCurrency(item.unitPrice, currency)}</div>
                       {item.notes && <div className="text-xs text-gray-500 mt-1">{item.notes}</div>}
                     </div>
-                    <div className="font-semibold">Rp {item.subtotal.toLocaleString()}</div>
+                    <div className="font-semibold">{formatCurrency(item.subtotal, currency)}</div>
                   </div>
                 ))}
               </div>
@@ -464,12 +567,29 @@ export default function OrdersManagementPage() {
             <div className="border-t pt-4 mb-6">
               <div className="flex justify-between items-center text-lg font-bold">
                 <span>Total Amount</span>
-                <span className="text-indigo-600">Rp {selectedOrder.totalAmount.toLocaleString()}</span>
+                <span className="text-indigo-600">{formatCurrency(selectedOrder.totalAmount, currency)}</span>
               </div>
             </div>
 
             {/* Status Update */}
             <div className="space-y-4">
+              {selectedOrder.status === OrderStatus.PENDING_APPROVAL && (
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <button
+                    onClick={() => handleApproveOrder(selectedOrder.id)}
+                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                  >
+                    Approve Order
+                  </button>
+                  <button
+                    onClick={() => handleRejectOrder(selectedOrder.id)}
+                    className="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  >
+                    Reject Order
+                  </button>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Update Order Status</label>
                 <select
@@ -479,6 +599,9 @@ export default function OrdersManagementPage() {
                 >
                   <option value={OrderStatus.PENDING}>Pending</option>
                   <option value={OrderStatus.PAID}>Paid</option>
+                  <option value={OrderStatus.PENDING_APPROVAL}>Pending Approval</option>
+                  <option value={OrderStatus.APPROVED}>Approved</option>
+                  <option value={OrderStatus.REJECTED}>Rejected</option>
                   <option value={OrderStatus.WAITING}>Waiting</option>
                   <option value={OrderStatus.COOKING}>Cooking</option>
                   <option value={OrderStatus.COMPLETED}>Completed</option>
@@ -499,5 +622,20 @@ export default function OrdersManagementPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function OrdersManagementPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading orders...</p>
+        </div>
+      </div>
+    }>
+      <OrdersManagementPageContent />
+    </Suspense>
   );
 }

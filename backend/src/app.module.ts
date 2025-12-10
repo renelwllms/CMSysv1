@@ -9,6 +9,7 @@ import { MenuModule } from './menu/menu.module';
 import { TablesModule } from './tables/tables.module';
 import { OrdersModule } from './orders/orders.module';
 import { TasksModule } from './tasks/tasks.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { TasksModule } from './tasks/tasks.module';
     TablesModule,
     OrdersModule,
     TasksModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

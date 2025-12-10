@@ -18,8 +18,22 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login({ email, password });
-      router.push('/dashboard');
+      const response = await login({ email, password });
+
+      // Check user role and redirect accordingly
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user.role === 'KITCHEN') {
+          router.push('/dashboard/kitchen');
+        } else if (user.role === 'STAFF') {
+          router.push('/dashboard/orders');
+        } else {
+          router.push('/dashboard');
+        }
+      } else {
+        router.push('/dashboard');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
     } finally {
@@ -32,7 +46,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-            Cafe Management System
+            BrewPoint
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Sign in to your account

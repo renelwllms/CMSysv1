@@ -7,12 +7,22 @@ import { useEffect, useState } from 'react';
 import { ordersService } from '@/services/orders.service';
 import { Order, OrderStatus } from '@/types';
 
+interface KitchenStats {
+  ordersCompletedToday: number;
+  ordersCompletedThisMonth: number;
+  ordersCompletedLastMonth: number;
+  avgCookingTime: number;
+  avgWaitingTime: number;
+}
+
 export default function KitchenDisplayPage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout } = useAuth();
   const { socket, isConnected } = useSocket();
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<KitchenStats | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -22,6 +32,15 @@ export default function KitchenDisplayPage() {
 
   useEffect(() => {
     loadOrders();
+    loadStats();
+  }, []);
+
+  // Update current time every second for live timers
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   // Socket.io real-time updates
@@ -71,10 +90,32 @@ export default function KitchenDisplayPage() {
     }
   };
 
+  const loadStats = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiUrl}/orders/kitchen/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('Failed to load stats:', error);
+    }
+  };
+
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     try {
       await ordersService.updateStatus(orderId, status);
       await loadOrders();
+      // Reload stats when order is completed
+      if (status === OrderStatus.COMPLETED) {
+        await loadStats();
+      }
     } catch (error) {
       console.error('Failed to update status:', error);
     }
@@ -86,6 +127,21 @@ export default function KitchenDisplayPage() {
     if (minutes < 60) return `${minutes} min ago`;
     const hours = Math.floor(minutes / 60);
     return `${hours}h ${minutes % 60}m ago`;
+  };
+
+  // Get live timer duration in MM:SS format
+  const getLiveTimer = (createdAt: string) => {
+    const seconds = Math.floor((currentTime.getTime() - new Date(createdAt).getTime()) / 1000);
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatMinutes = (minutes: number) => {
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
   };
 
   const getOrderColor = (order: Order) => {
@@ -120,14 +176,16 @@ export default function KitchenDisplayPage() {
       <div className="bg-gray-800 text-white py-4 px-6 shadow-lg">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="text-gray-300 hover:text-white"
-            >
-              <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </button>
+            {user?.role !== 'KITCHEN' && (
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="text-gray-300 hover:text-white"
+              >
+                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </button>
+            )}
             <h1 className="text-3xl font-bold">Kitchen Display</h1>
           </div>
           <div className="flex items-center space-x-6">
@@ -147,9 +205,59 @@ export default function KitchenDisplayPage() {
             >
               Refresh Now
             </button>
+            {user?.role === 'KITCHEN' && (
+              <button
+                onClick={logout}
+                className="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 font-medium"
+              >
+                Logout
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Statistics Section */}
+      {stats && (
+        <div className="bg-gray-800 px-6 py-4 border-t border-gray-700">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {/* Orders Completed Today */}
+            <div className="bg-gray-700 rounded-lg p-4">
+              <div className="text-xs text-gray-400 uppercase mb-1">Today</div>
+              <div className="text-2xl font-bold text-white">{stats.ordersCompletedToday}</div>
+              <div className="text-xs text-gray-400">Orders Completed</div>
+            </div>
+
+            {/* Orders Completed This Month */}
+            <div className="bg-gray-700 rounded-lg p-4">
+              <div className="text-xs text-gray-400 uppercase mb-1">This Month</div>
+              <div className="text-2xl font-bold text-white">{stats.ordersCompletedThisMonth}</div>
+              <div className="text-xs text-gray-400">Orders Completed</div>
+            </div>
+
+            {/* Orders Completed Last Month */}
+            <div className="bg-gray-700 rounded-lg p-4">
+              <div className="text-xs text-gray-400 uppercase mb-1">Last Month</div>
+              <div className="text-2xl font-bold text-white">{stats.ordersCompletedLastMonth}</div>
+              <div className="text-xs text-gray-400">Orders Completed</div>
+            </div>
+
+            {/* Average Cooking Time */}
+            <div className="bg-green-900 bg-opacity-50 rounded-lg p-4">
+              <div className="text-xs text-green-400 uppercase mb-1">Avg Cooking Time</div>
+              <div className="text-2xl font-bold text-white">{formatMinutes(stats.avgCookingTime)}</div>
+              <div className="text-xs text-green-400">From Start to Done</div>
+            </div>
+
+            {/* Average Waiting Time */}
+            <div className="bg-yellow-900 bg-opacity-50 rounded-lg p-4">
+              <div className="text-xs text-yellow-400 uppercase mb-1">Avg Waiting Time</div>
+              <div className="text-2xl font-bold text-white">{formatMinutes(stats.avgWaitingTime)}</div>
+              <div className="text-xs text-yellow-400">Before Cooking</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {orders.length === 0 ? (
         <div className="flex items-center justify-center h-[calc(100vh-100px)]">
@@ -183,6 +291,10 @@ export default function KitchenDisplayPage() {
                       <div>
                         <div className="text-3xl font-bold text-gray-900">{order.orderNumber}</div>
                         <div className="text-sm text-gray-600 mt-1">{getTimeElapsed(order.createdAt)}</div>
+                        {/* Live Timer */}
+                        <div className="mt-2 bg-red-600 text-white px-3 py-1 rounded-full font-mono text-xl font-bold inline-block">
+                          ⏱ {getLiveTimer(order.createdAt)}
+                        </div>
                       </div>
                       {order.table && (
                         <div className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-lg">
@@ -259,6 +371,10 @@ export default function KitchenDisplayPage() {
                       <div>
                         <div className="text-3xl font-bold text-gray-900">{order.orderNumber}</div>
                         <div className="text-sm text-gray-600 mt-1">{getTimeElapsed(order.createdAt)}</div>
+                        {/* Live Timer */}
+                        <div className="mt-2 bg-red-600 text-white px-3 py-1 rounded-full font-mono text-xl font-bold inline-block">
+                          ⏱ {getLiveTimer(order.createdAt)}
+                        </div>
                       </div>
                       {order.table && (
                         <div className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-lg">

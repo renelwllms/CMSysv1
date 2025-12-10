@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ordersService } from '@/services/orders.service';
 import { menuService } from '@/services/menu.service';
+import { formatCurrency as formatCurrencyUtil } from '@/lib/currency';
 
 interface Analytics {
   todayRevenue: number;
@@ -16,6 +17,12 @@ interface Analytics {
   popularItems: Array<{ name: string; count: number; revenue: number }>;
   categoryBreakdown: Array<{ category: string; count: number; revenue: number }>;
   hourlyDistribution: Array<{ hour: number; count: number }>;
+  tableUsage: Array<{ tableNumber: string; count: number }>;
+  busiestHours: Array<{ hour: number; count: number }>;
+  avgCookingTime: number;
+  totalRevenue: number;
+  avgOrderValue: number;
+  totalOrders: number;
 }
 
 export default function AnalyticsPage() {
@@ -23,6 +30,7 @@ export default function AnalyticsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
+  const [currency, setCurrency] = useState<string>('IDR');
   const [analytics, setAnalytics] = useState<Analytics>({
     todayRevenue: 0,
     weekRevenue: 0,
@@ -33,6 +41,12 @@ export default function AnalyticsPage() {
     popularItems: [],
     categoryBreakdown: [],
     hourlyDistribution: [],
+    tableUsage: [],
+    busiestHours: [],
+    avgCookingTime: 0,
+    totalRevenue: 0,
+    avgOrderValue: 0,
+    totalOrders: 0,
   });
 
   useEffect(() => {
@@ -42,13 +56,42 @@ export default function AnalyticsPage() {
   }, [user, isLoading, router]);
 
   useEffect(() => {
+    loadSettings();
     loadAnalytics();
   }, []);
+
+  const loadSettings = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      const response = await fetch(`${apiUrl}/settings`);
+      if (response.ok) {
+        const data = await response.json();
+        setCurrency(data.currency || 'IDR');
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
 
   const loadAnalytics = async () => {
     try {
       setLoading(true);
-      // In a real app, this would be an API call to get aggregated analytics
+      // Get analytics data from backend
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiUrl}/orders/analytics`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load analytics');
+      }
+
+      const backendAnalytics = await response.json();
+
+      // Also get all orders for time-based filtering
       const orders = await ordersService.getAll();
 
       // Calculate analytics from orders
@@ -67,7 +110,7 @@ export default function AnalyticsPage() {
 
       // Popular items
       const itemCounts = new Map<string, { name: string; count: number; revenue: number }>();
-      orders.forEach(order => {
+      orders.filter(o => o.paymentStatus === 'PAID').forEach(order => {
         order.orderItems.forEach(item => {
           const key = item.menuItem?.id || '';
           const existing = itemCounts.get(key);
@@ -98,6 +141,12 @@ export default function AnalyticsPage() {
         popularItems,
         categoryBreakdown: [],
         hourlyDistribution: [],
+        tableUsage: backendAnalytics.tableUsage || [],
+        busiestHours: backendAnalytics.busiestHours || [],
+        avgCookingTime: backendAnalytics.avgCookingTime || 0,
+        totalRevenue: backendAnalytics.totalRevenue || 0,
+        avgOrderValue: backendAnalytics.avgOrderValue || 0,
+        totalOrders: backendAnalytics.totalOrders || 0,
       });
     } catch (error) {
       console.error('Failed to load analytics:', error);
@@ -107,11 +156,7 @@ export default function AnalyticsPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
+    return formatCurrencyUtil(amount, currency);
   };
 
   const getRevenue = () => {
@@ -224,12 +269,12 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-600">Total Revenue</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{formatCurrency(getRevenue())}</p>
-                <p className="text-sm text-green-600 mt-1">+12.5% from previous period</p>
+                <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-2 break-words">{formatCurrency(getRevenue())}</p>
+                <p className="text-xs text-gray-500 mt-1">All-time: {formatCurrency(analytics.totalRevenue)}</p>
               </div>
-              <div className="bg-green-100 p-3 rounded-lg">
+              <div className="bg-green-100 p-3 rounded-lg flex-shrink-0">
                 <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -239,12 +284,12 @@ export default function AnalyticsPage() {
 
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-600">Total Orders</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{getOrders()}</p>
-                <p className="text-sm text-green-600 mt-1">+8.2% from previous period</p>
+                <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-2 break-words">{getOrders()}</p>
+                <p className="text-xs text-gray-500 mt-1">All-time: {analytics.totalOrders}</p>
               </div>
-              <div className="bg-blue-100 p-3 rounded-lg">
+              <div className="bg-blue-100 p-3 rounded-lg flex-shrink-0">
                 <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
@@ -254,12 +299,12 @@ export default function AnalyticsPage() {
 
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-600">Average Order Value</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{formatCurrency(getAverageOrderValue())}</p>
-                <p className="text-sm text-green-600 mt-1">+3.1% from previous period</p>
+                <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-2 break-words">{formatCurrency(getAverageOrderValue())}</p>
+                <p className="text-xs text-gray-500 mt-1">All-time: {formatCurrency(analytics.avgOrderValue)}</p>
               </div>
-              <div className="bg-purple-100 p-3 rounded-lg">
+              <div className="bg-purple-100 p-3 rounded-lg flex-shrink-0">
                 <svg className="h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
@@ -316,31 +361,24 @@ export default function AnalyticsPage() {
             )}
           </div>
 
-          {/* Recent Activity */}
+          {/* Average Cooking Time & Performance */}
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Performance Insights</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Kitchen Performance</h2>
             <div className="space-y-4">
-              <div className="flex items-start space-x-3 p-4 bg-green-50 rounded-lg">
-                <div className="flex-shrink-0">
-                  <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div className="p-4 bg-green-50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Average Cooking Time</p>
+                    <p className="text-3xl font-bold text-green-600 mt-1">
+                      {analytics.avgCookingTime < 60
+                        ? `${analytics.avgCookingTime} min`
+                        : `${Math.floor(analytics.avgCookingTime / 60)}h ${analytics.avgCookingTime % 60}m`
+                      }
+                    </p>
+                  </div>
+                  <svg className="h-12 w-12 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">Revenue Growth</p>
-                  <p className="text-sm text-gray-600 mt-1">Your revenue is trending upward this {period}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg">
-                <div className="flex-shrink-0">
-                  <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">Order Volume</p>
-                  <p className="text-sm text-gray-600 mt-1">Consistent order flow throughout the day</p>
                 </div>
               </div>
 
@@ -356,18 +394,111 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
-              <div className="flex items-start space-x-3 p-4 bg-yellow-50 rounded-lg">
+              <div className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg">
                 <div className="flex-shrink-0">
-                  <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">Peak Hours</p>
-                  <p className="text-sm text-gray-600 mt-1">Most orders between 12 PM - 2 PM</p>
+                  <p className="font-medium text-gray-900">Order Volume</p>
+                  <p className="text-sm text-gray-600 mt-1">Consistent order flow throughout the day</p>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Table Usage & Busiest Hours */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          {/* Table Usage */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Table Usage</h2>
+            {analytics.tableUsage.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No table usage data available</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {analytics.tableUsage.slice(0, 5).map((table, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3 flex-1">
+                      <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                        index === 0 ? 'bg-indigo-100 text-indigo-600' :
+                        index === 1 ? 'bg-purple-100 text-purple-600' :
+                        index === 2 ? 'bg-blue-100 text-blue-600' :
+                        'bg-gray-50 text-gray-500'
+                      } font-bold text-sm`}>
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">Table {table.tableNumber}</p>
+                        <div className="mt-1 bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-indigo-600 h-2 rounded-full"
+                            style={{
+                              width: `${(table.count / analytics.tableUsage[0].count) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="ml-4 text-right">
+                      <p className="font-bold text-gray-900">{table.count}</p>
+                      <p className="text-xs text-gray-500">orders</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Busiest Time of Day */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Busiest Time of Day</h2>
+            {analytics.busiestHours.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No hourly data available</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {analytics.busiestHours.map((hourData, index) => {
+                  const hour12 = hourData.hour === 0 ? 12 : hourData.hour > 12 ? hourData.hour - 12 : hourData.hour;
+                  const ampm = hourData.hour >= 12 ? 'PM' : 'AM';
+                  return (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3 flex-1">
+                        <div className={`flex items-center justify-center w-12 h-12 rounded-lg ${
+                          index === 0 ? 'bg-yellow-100 text-yellow-600' :
+                          index === 1 ? 'bg-orange-100 text-orange-600' :
+                          index === 2 ? 'bg-red-100 text-red-600' :
+                          'bg-gray-50 text-gray-500'
+                        } font-bold text-sm`}>
+                          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{hour12}:00 {ampm}</p>
+                          <div className="mt-1 bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-yellow-600 h-2 rounded-full"
+                              style={{
+                                width: `${(hourData.count / analytics.busiestHours[0].count) * 100}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="ml-4 text-right">
+                        <p className="font-bold text-gray-900">{hourData.count}</p>
+                        <p className="text-xs text-gray-500">orders</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

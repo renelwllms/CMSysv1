@@ -207,7 +207,7 @@ export default function TablesManagementPage() {
                   <div className="mb-4 flex justify-center">
                     <div className="bg-gray-100 p-4 rounded-lg">
                       <img
-                        src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${table.qrCode}`}
+                        src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/tables/${table.id}/qr-code`}
                         alt={`QR Code for Table ${table.tableNumber}`}
                         className="w-32 h-32"
                         onError={(e) => {
@@ -322,7 +322,7 @@ export default function TablesManagementPage() {
               <div className="flex flex-col items-center">
                 <div className="bg-white p-8 rounded-lg border-4 border-gray-200">
                   <img
-                    src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${selectedTable.qrCode}`}
+                    src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/tables/${selectedTable.id}/qr-code`}
                     alt={`QR Code for Table ${selectedTable.tableNumber}`}
                     className="w-64 h-64"
                     onError={(e) => {

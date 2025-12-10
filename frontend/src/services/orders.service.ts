@@ -4,7 +4,7 @@ import { Order, OrderStatus, PaymentStatus, OrderStats } from '../types';
 export interface CreateOrderData {
   customerName: string;
   customerPhone: string;
-  language: string;
+  language: 'ENGLISH' | 'INDONESIAN';
   tableId?: string;
   notes?: string;
   items: {
@@ -56,6 +56,11 @@ export const ordersService = {
     return data;
   },
 
+  async update(id: string, orderData: Partial<CreateOrderData>): Promise<Order> {
+    const { data} = await axios.put<Order>(`/orders/${id}`, orderData);
+    return data;
+  },
+
   async updateStatus(id: string, status: OrderStatus): Promise<Order> {
     const { data } = await axios.patch<Order>(`/orders/${id}/status`, { status });
     return data;
@@ -68,5 +73,15 @@ export const ordersService = {
 
   async cancel(id: string): Promise<void> {
     await axios.delete(`/orders/${id}`);
+  },
+
+  async approve(id: string): Promise<Order> {
+    const { data } = await axios.patch<Order>(`/orders/${id}/approve`);
+    return data;
+  },
+
+  async reject(id: string): Promise<Order> {
+    const { data } = await axios.patch<Order>(`/orders/${id}/reject`);
+    return data;
   },
 };

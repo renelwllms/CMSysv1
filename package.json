@@ -23,5 +23,8 @@
     "restaurant"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "pm2": "^6.0.14"
+  }
 }

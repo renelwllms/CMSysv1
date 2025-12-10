@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { menuService } from '@/services/menu.service';
 import { MenuItem, MenuCategory } from '@/types';
 import MenuItemForm from '@/components/MenuItemForm';
+import { formatCurrency } from '@/lib/currency';
 
 export default function MenuManagementPage() {
   const { user, isLoading } = useAuth();
@@ -18,6 +19,7 @@ export default function MenuManagementPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<string>('IDR');
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -26,8 +28,22 @@ export default function MenuManagementPage() {
   }, [user, isLoading, router]);
 
   useEffect(() => {
+    loadSettings();
     loadMenuItems();
   }, []);
+
+  const loadSettings = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      const response = await fetch(`${apiUrl}/settings`);
+      if (response.ok) {
+        const data = await response.json();
+        setCurrency(data.currency || 'IDR');
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
 
   useEffect(() => {
     filterItems();
@@ -220,7 +236,7 @@ export default function MenuManagementPage() {
                 <div className="relative h-48 bg-gray-200">
                   {item.imageUrl ? (
                     <img
-                      src={item.imageUrl}
+                      src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000'}${item.imageUrl}`}
                       alt={item.name}
                       className="w-full h-full object-cover"
                     />
@@ -268,7 +284,7 @@ export default function MenuManagementPage() {
                   )}
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-2xl font-bold text-indigo-600">
-                      Rp {item.price.toLocaleString()}
+                      {formatCurrency(item.price, currency)}
                     </span>
                     {item.stockQty !== null && item.stockQty !== undefined && (
                       <span className="text-sm text-gray-600">

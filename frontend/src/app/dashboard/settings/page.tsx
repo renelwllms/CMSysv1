@@ -5,12 +5,21 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 interface Settings {
+  id?: string;
   businessName: string;
-  address: string;
-  phone: string;
-  email: string;
+  businessNameId?: string;
+  businessAddress: string;
+  businessPhone: string;
+  businessWhatsApp?: string;
+  businessEmail: string;
+  logoUrl?: string;
+  ogImageUrl?: string;
+  themeColor?: string;
+  currency: string;
   taxRate: number;
   serviceChargeRate: number;
+  orderApprovalMode: string;
+  autoClearUnapprovedMinutes: number;
   autoClearing: {
     enabled: boolean;
     normalOrderHours: number;
@@ -19,6 +28,7 @@ interface Settings {
   downPayment: {
     cakePercentage: number;
   };
+  enableCabinetFoods: boolean;
 }
 
 export default function SettingsPage() {
@@ -27,11 +37,14 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'business' | 'orders' | 'system' | 'users'>('business');
   const [settings, setSettings] = useState<Settings>({
     businessName: 'My Cafe',
-    address: '123 Main Street, City',
-    phone: '+1234567890',
-    email: 'info@mycafe.com',
+    businessAddress: '123 Main Street, City',
+    businessPhone: '+1234567890',
+    businessEmail: 'info@mycafe.com',
+    currency: 'IDR',
     taxRate: 10,
     serviceChargeRate: 5,
+    orderApprovalMode: 'DIRECT',
+    autoClearUnapprovedMinutes: 30,
     autoClearing: {
       enabled: true,
       normalOrderHours: 1,
@@ -40,8 +53,12 @@ export default function SettingsPage() {
     downPayment: {
       cakePercentage: 50,
     },
+    enableCabinetFoods: true,
   });
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [ogImagePreview, setOgImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -50,18 +67,199 @@ export default function SettingsPage() {
   }, [user, isLoading, router]);
 
   useEffect(() => {
-    // Load settings from localStorage or API
-    const savedSettings = localStorage.getItem('cafeSettings');
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
-    }
+    // Load settings from API
+    const fetchSettings = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        const response = await fetch(`${apiUrl}/settings`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          // Map flat backend structure to nested frontend structure
+          setSettings({
+            ...settings,
+            businessName: data.businessName || settings.businessName,
+            businessNameId: data.businessNameId,
+            businessAddress: data.businessAddress || settings.businessAddress,
+            businessPhone: data.businessPhone || settings.businessPhone,
+            businessEmail: data.businessEmail || settings.businessEmail,
+            logoUrl: data.logoUrl,
+            ogImageUrl: data.ogImageUrl,
+            themeColor: data.themeColor,
+            currency: data.currency || settings.currency,
+            taxRate: data.taxRate || settings.taxRate,
+            serviceChargeRate: data.serviceChargeRate || settings.serviceChargeRate,
+            orderApprovalMode: data.orderApprovalMode || settings.orderApprovalMode,
+            autoClearUnapprovedMinutes: data.autoClearUnapprovedMinutes || settings.autoClearUnapprovedMinutes,
+            autoClearing: {
+              enabled: data.autoClearingEnabled ?? settings.autoClearing.enabled,
+              normalOrderHours: data.normalOrderClearHours || settings.autoClearing.normalOrderHours,
+              cakeOrderDays: data.cakeOrderClearDays || settings.autoClearing.cakeOrderDays,
+            },
+            downPayment: {
+              cakePercentage: data.cakeDownPaymentPercentage || settings.downPayment.cakePercentage,
+            },
+            enableCabinetFoods: data.enableCabinetFoods ?? settings.enableCabinetFoods,
+          });
+          if (data.logoUrl) {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000';
+            setLogoPreview(`${baseUrl}${data.logoUrl}`);
+          }
+          if (data.ogImageUrl) {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000';
+            setOgImagePreview(`${baseUrl}${data.ogImageUrl}`);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch settings:', error);
+      }
+    };
+    fetchSettings();
   }, []);
 
-  const handleSave = () => {
-    // Save to localStorage (in production, this would be an API call)
-    localStorage.setItem('cafeSettings', JSON.stringify(settings));
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+  const handleSave = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+
+      // Transform nested frontend structure to flat backend structure
+      const backendData = {
+        businessName: settings.businessName,
+        businessNameId: settings.businessNameId,
+        businessAddress: settings.businessAddress,
+        businessPhone: settings.businessPhone,
+        businessWhatsApp: settings.businessWhatsApp,
+        businessEmail: settings.businessEmail,
+        logoUrl: settings.logoUrl,
+        ogImageUrl: settings.ogImageUrl,
+        themeColor: settings.themeColor,
+        currency: settings.currency,
+        taxRate: settings.taxRate,
+        serviceChargeRate: settings.serviceChargeRate,
+        orderApprovalMode: settings.orderApprovalMode,
+        autoClearUnapprovedMinutes: settings.autoClearUnapprovedMinutes,
+        autoClearingEnabled: settings.autoClearing.enabled,
+        normalOrderClearHours: settings.autoClearing.normalOrderHours,
+        cakeOrderClearDays: settings.autoClearing.cakeOrderDays,
+        cakeDownPaymentPercentage: settings.downPayment.cakePercentage,
+        enableCabinetFoods: settings.enableCabinetFoods,
+      };
+
+      const response = await fetch(`${apiUrl}/settings`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(backendData),
+      });
+
+      if (response.ok) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to save settings:', errorData);
+        alert(`Failed to save settings: ${errorData.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      alert('Failed to save settings');
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    setIsUploading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      console.log('Uploading logo to:', `${apiUrl}/settings/upload-logo`);
+
+      const response = await fetch(`${apiUrl}/settings/upload-logo`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      console.log('Upload response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Upload success:', data);
+        setSettings({ ...settings, logoUrl: data.logoUrl });
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000';
+        setLogoPreview(`${baseUrl}${data.logoUrl}`);
+        alert('Logo uploaded successfully!');
+      } else {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('Upload failed:', errorData);
+        alert(`Failed to upload logo: ${errorData.message || response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Failed to upload logo:', error);
+      alert(`Failed to upload logo: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleOgImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('ogImage', file);
+
+    setIsUploading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      console.log('Uploading OG image to:', `${apiUrl}/settings/upload-og-image`);
+
+      const response = await fetch(`${apiUrl}/settings/upload-og-image`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      console.log('Upload response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Upload success:', data);
+        setSettings({ ...settings, ogImageUrl: data.ogImageUrl });
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000';
+        setOgImagePreview(`${baseUrl}${data.ogImageUrl}`);
+        alert('Open Graph image uploaded successfully!');
+      } else {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('Upload failed:', errorData);
+        alert(`Failed to upload Open Graph image: ${errorData.message || response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Failed to upload Open Graph image:', error);
+      alert(`Failed to upload Open Graph image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleInputChange = (section: string, field: string, value: any) => {
@@ -202,6 +400,80 @@ export default function SettingsPage() {
         {/* Business Info Tab */}
         {activeTab === 'business' && (
           <div className="space-y-6">
+            {/* Branding */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6">Branding</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Logo Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Business Logo
+                  </label>
+                  <div className="mt-2">
+                    {logoPreview && (
+                      <div className="mb-4">
+                        <img
+                          src={logoPreview}
+                          alt="Logo preview"
+                          className="h-32 w-auto object-contain border border-gray-300 rounded-lg p-2"
+                        />
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      disabled={isUploading}
+                      className="block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-indigo-50 file:text-indigo-700
+                        hover:file:bg-indigo-100
+                        disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <p className="mt-2 text-sm text-gray-500">
+                      Recommended: Square image, max 5MB
+                    </p>
+                  </div>
+                </div>
+
+                {/* Open Graph Image Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Open Graph Image
+                  </label>
+                  <div className="mt-2">
+                    {ogImagePreview && (
+                      <div className="mb-4">
+                        <img
+                          src={ogImagePreview}
+                          alt="OG image preview"
+                          className="h-32 w-auto object-contain border border-gray-300 rounded-lg p-2"
+                        />
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleOgImageUpload}
+                      disabled={isUploading}
+                      className="block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-indigo-50 file:text-indigo-700
+                        hover:file:bg-indigo-100
+                        disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <p className="mt-2 text-sm text-gray-500">
+                      For social media sharing. Recommended: 1200x630px, max 5MB
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-6">Business Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -222,8 +494,8 @@ export default function SettingsPage() {
                   </label>
                   <input
                     type="tel"
-                    value={settings.phone}
-                    onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                    value={settings.businessPhone}
+                    onChange={(e) => setSettings({ ...settings, businessPhone: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -233,8 +505,8 @@ export default function SettingsPage() {
                   </label>
                   <input
                     type="email"
-                    value={settings.email}
-                    onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                    value={settings.businessEmail}
+                    onChange={(e) => setSettings({ ...settings, businessEmail: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -243,11 +515,41 @@ export default function SettingsPage() {
                     Address
                   </label>
                   <textarea
-                    value={settings.address}
-                    onChange={(e) => setSettings({ ...settings, address: e.target.value })}
+                    value={settings.businessAddress}
+                    onChange={(e) => setSettings({ ...settings, businessAddress: e.target.value })}
                     rows={3}
                     className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6">Currency</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Default Currency
+                  </label>
+                  <select
+                    value={settings.currency}
+                    onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="IDR">Indonesian Rupiah (Rp)</option>
+                    <option value="USD">US Dollar ($)</option>
+                    <option value="NZD">New Zealand Dollar (NZ$)</option>
+                    <option value="AUD">Australian Dollar (A$)</option>
+                    <option value="EUR">Euro (€)</option>
+                    <option value="GBP">British Pound (£)</option>
+                    <option value="SGD">Singapore Dollar (S$)</option>
+                    <option value="MYR">Malaysian Ringgit (RM)</option>
+                    <option value="THB">Thai Baht (฿)</option>
+                    <option value="JPY">Japanese Yen (¥)</option>
+                  </select>
+                  <p className="mt-2 text-sm text-gray-500">
+                    This currency will be used throughout the system for pricing and revenue display
+                  </p>
                 </div>
               </div>
             </div>
@@ -293,6 +595,46 @@ export default function SettingsPage() {
         {/* Order Settings Tab */}
         {activeTab === 'orders' && (
           <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6">Order Approval Flow</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Order Flow to Kitchen
+                  </label>
+                  <select
+                    value={settings.orderApprovalMode}
+                    onChange={(e) => setSettings({ ...settings, orderApprovalMode: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="DIRECT">Direct to Kitchen - Orders appear immediately on kitchen display</option>
+                    <option value="REQUIRES_APPROVAL">Requires Staff Approval - Orders must be verified by staff before appearing on kitchen display</option>
+                  </select>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Choose whether customer orders go directly to the kitchen or require staff approval first
+                  </p>
+                </div>
+
+                {settings.orderApprovalMode === 'REQUIRES_APPROVAL' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Auto-clear Unapproved Orders After (Minutes)
+                    </label>
+                    <input
+                      type="number"
+                      min="5"
+                      value={settings.autoClearUnapprovedMinutes}
+                      onChange={(e) => setSettings({ ...settings, autoClearUnapprovedMinutes: parseInt(e.target.value) })}
+                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <p className="mt-2 text-sm text-gray-500">
+                      Orders waiting for approval will be automatically cancelled after this many minutes. Default: 30 minutes
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-6">Auto-Clear Unpaid Orders</h2>
               <div className="space-y-4">
@@ -357,6 +699,27 @@ export default function SettingsPage() {
                 />
                 <p className="mt-2 text-sm text-gray-500">
                   Customers must pay this percentage when ordering cakes. Default: 50%
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6">Cabinet Foods</h2>
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={settings.enableCabinetFoods}
+                    onChange={(e) => setSettings({ ...settings, enableCabinetFoods: e.target.checked })}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-900">
+                    Enable Cabinet Foods Section
+                  </label>
+                </div>
+                <p className="text-sm text-gray-500 ml-6">
+                  When enabled, customers can order items from the Cabinet Foods, Drinks, Cakes, and other cabinet categories.
+                  Menu items with these categories will be available for ordering on the customer-facing ordering page.
                 </p>
               </div>
             </div>
