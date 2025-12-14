@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { MenuItem, MenuCategory, Order } from '@/types';
 import { formatCurrency } from '@/lib/currency';
+import { tenantHeaders } from '@/lib/tenant';
 
 interface Table {
   id: string;
@@ -72,7 +73,7 @@ export default function NewOrderPage() {
   const loadSettings = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const response = await fetch(`${apiUrl}/settings`);
+      const response = await fetch(`${apiUrl}/settings`, { headers: tenantHeaders() });
       if (response.ok) {
         const data = await response.json();
         setCurrency(data.currency || 'IDR');

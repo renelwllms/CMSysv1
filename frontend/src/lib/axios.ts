@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getTenantSlug } from './tenant';
 
 const axiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api',
@@ -18,5 +19,14 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+axiosInstance.interceptors.request.use((config) => {
+  const tenant = getTenantSlug();
+  if (tenant) {
+    config.headers = (config.headers || {}) as any;
+    (config.headers as any)['x-tenant-id'] = tenant;
+  }
+  return config;
+});
 
 export default axiosInstance;

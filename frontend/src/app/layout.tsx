@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SocketProvider } from '@/contexts/SocketContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { tenantHeaders } from '@/lib/tenant';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -13,6 +14,7 @@ async function getSettings() {
     const response = await fetch(`${apiUrl}/settings`, {
       method: 'GET',
       cache: 'no-store', // Don't cache settings
+      headers: tenantHeaders(),
     });
 
     if (response.ok) {

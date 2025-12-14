@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { MenuItem, MenuCategory, Order } from '@/types';
 import { ordersService } from '@/services/orders.service';
 import { formatCurrency } from '@/lib/currency';
+import { tenantHeaders } from '@/lib/tenant';
 
 interface Table {
   id: string;
@@ -79,7 +80,7 @@ export default function EditOrderPage() {
   const loadSettings = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const response = await fetch(`${apiUrl}/settings`);
+      const response = await fetch(`${apiUrl}/settings`, { headers: tenantHeaders() });
       if (response.ok) {
         const data = await response.json();
         setCurrency(data.currency || 'IDR');

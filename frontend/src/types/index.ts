@@ -38,6 +38,7 @@ export interface User {
   fullName: string;
   role: UserRole;
   isActive: boolean;
+  tenantId?: string;
   createdAt: string;
   updatedAt: string;
 }

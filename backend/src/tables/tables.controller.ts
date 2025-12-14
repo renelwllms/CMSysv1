@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Res,
+  Req,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { TablesService } from './tables.service';
@@ -27,23 +28,23 @@ export class TablesController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  create(@Body() createTableDto: CreateTableDto) {
-    return this.tablesService.create(createTableDto);
+  create(@Body() createTableDto: CreateTableDto, @Req() req: any) {
+    return this.tablesService.create(createTableDto, req?.tenant?.id);
   }
 
   @Get()
-  findAll() {
-    return this.tablesService.findAll();
+  findAll(@Req() req: any) {
+    return this.tablesService.findAll(req?.tenant?.id);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.tablesService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req: any) {
+    return this.tablesService.findOne(id, req?.tenant?.id);
   }
 
   @Get(':id/qr-code')
-  async getQRCodeData(@Param('id') id: string, @Res() res: Response) {
-    const table = await this.tablesService.findOne(id);
+  async getQRCodeData(@Param('id') id: string, @Res() res: Response, @Req() req: any) {
+    const table = await this.tablesService.findOne(id, req?.tenant?.id);
 
     if (!table.qrCode) {
       return res.status(404).json({ message: 'QR code not found' });
@@ -61,8 +62,8 @@ export class TablesController {
   }
 
   @Get(':id/qr-code/download')
-  async downloadQRCode(@Param('id') id: string, @Res() res: Response) {
-    const table = await this.tablesService.findOne(id);
+  async downloadQRCode(@Param('id') id: string, @Res() res: Response, @Req() req: any) {
+    const table = await this.tablesService.findOne(id, req?.tenant?.id);
 
     if (!table.qrCode) {
       return res.status(404).json({ message: 'QR code not found' });
@@ -80,28 +81,28 @@ export class TablesController {
   @Post(':id/regenerate-qr')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  regenerateQRCode(@Param('id') id: string) {
-    return this.tablesService.regenerateQRCode(id);
+  regenerateQRCode(@Param('id') id: string, @Req() req: any) {
+    return this.tablesService.regenerateQRCode(id, req?.tenant?.id);
   }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  update(@Param('id') id: string, @Body() updateTableDto: UpdateTableDto) {
-    return this.tablesService.update(id, updateTableDto);
+  update(@Param('id') id: string, @Body() updateTableDto: UpdateTableDto, @Req() req: any) {
+    return this.tablesService.update(id, updateTableDto, req?.tenant?.id);
   }
 
   @Patch(':id/toggle-active')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  toggleActive(@Param('id') id: string) {
-    return this.tablesService.toggleActive(id);
+  toggleActive(@Param('id') id: string, @Req() req: any) {
+    return this.tablesService.toggleActive(id, req?.tenant?.id);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  remove(@Param('id') id: string) {
-    return this.tablesService.remove(id);
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.tablesService.remove(id, req?.tenant?.id);
   }
 }

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { ordersService } from '@/services/orders.service';
 import { menuService } from '@/services/menu.service';
 import { formatCurrency as formatCurrencyUtil } from '@/lib/currency';
+import { tenantHeaders } from '@/lib/tenant';
 
 interface Analytics {
   todayRevenue: number;
@@ -63,7 +64,7 @@ export default function AnalyticsPage() {
   const loadSettings = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const response = await fetch(`${apiUrl}/settings`);
+      const response = await fetch(`${apiUrl}/settings`, { headers: tenantHeaders() });
       if (response.ok) {
         const data = await response.json();
         setCurrency(data.currency || 'IDR');

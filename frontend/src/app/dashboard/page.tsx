@@ -5,6 +5,7 @@ import { useSocket } from '@/contexts/SocketContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { formatCurrency } from '@/lib/currency';
+import { tenantHeaders } from '@/lib/tenant';
 
 interface OrderStats {
   todayOrders: number;
@@ -48,6 +49,7 @@ export default function DashboardPage() {
         const response = await fetch(`${apiUrl}/settings`, {
           method: 'GET',
           credentials: 'include',
+          headers: tenantHeaders(),
         });
         if (response.ok) {
           const data = await response.json();

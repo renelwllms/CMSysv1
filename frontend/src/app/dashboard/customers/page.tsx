@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { formatCurrency } from '@/lib/currency';
+import { tenantHeaders } from '@/lib/tenant';
 
 interface Customer {
   name: string;
@@ -46,7 +47,7 @@ export default function CustomersPage() {
 
   const loadSettings = async () => {
     try {
-      const response = await fetch(`${apiUrl}/settings`);
+      const response = await fetch(`${apiUrl}/settings`, { headers: tenantHeaders() });
       if (response.ok) {
         const data = await response.json();
         setCurrency(data.currency || 'IDR');

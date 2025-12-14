@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { formatCurrency } from '@/lib/currency';
+import { tenantHeaders } from '@/lib/tenant';
 
 export default function FeaturesPage() {
   const [currency, setCurrency] = useState<string>('IDR');
@@ -15,7 +16,7 @@ export default function FeaturesPage() {
   const loadSettings = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const response = await fetch(`${apiUrl}/settings`);
+      const response = await fetch(`${apiUrl}/settings`, { headers: tenantHeaders() });
       if (response.ok) {
         const data = await response.json();
         setCurrency(data.currency || 'IDR');

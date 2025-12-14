@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { menuService } from '@/services/menu.service';
 import { MenuItem } from '@/types';
+import { tenantHeaders } from '@/lib/tenant';
 
 interface Settings {
   id?: string;
@@ -80,6 +81,7 @@ export default function SettingsPage() {
           method: 'GET',
           credentials: 'include',
           headers: {
+            ...tenantHeaders(),
             'Content-Type': 'application/json',
           },
         });
@@ -172,6 +174,7 @@ export default function SettingsPage() {
         method: 'PUT',
         credentials: 'include',
         headers: {
+          ...tenantHeaders(),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(backendData),
@@ -206,6 +209,7 @@ export default function SettingsPage() {
       const response = await fetch(`${apiUrl}/settings/upload-logo`, {
         method: 'POST',
         credentials: 'include',
+        headers: tenantHeaders(),
         body: formData,
       });
 
@@ -246,6 +250,7 @@ export default function SettingsPage() {
       const response = await fetch(`${apiUrl}/settings/upload-og-image`, {
         method: 'POST',
         credentials: 'include',
+        headers: tenantHeaders(),
         body: formData,
       });
 

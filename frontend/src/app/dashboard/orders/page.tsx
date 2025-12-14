@@ -7,6 +7,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { ordersService } from '@/services/orders.service';
 import { Order, OrderStatus, PaymentStatus } from '@/types';
 import { formatCurrency } from '@/lib/currency';
+import { tenantHeaders } from '@/lib/tenant';
 
 function OrdersManagementPageContent() {
   const { user, isLoading } = useAuth();
@@ -46,7 +47,7 @@ function OrdersManagementPageContent() {
   const loadSettings = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const response = await fetch(`${apiUrl}/settings`);
+      const response = await fetch(`${apiUrl}/settings`, { headers: tenantHeaders() });
       if (response.ok) {
         const data = await response.json();
         setCurrency(data.currency || 'IDR');

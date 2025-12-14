@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { menuService } from '@/services/menu.service';
+import { tenantHeaders } from '@/lib/tenant';
 import { ordersService, CreateOrderData } from '@/services/orders.service';
 import { MenuItem, MenuCategory, Order } from '@/types';
 import { formatCurrency } from '@/lib/currency';
@@ -67,6 +68,7 @@ function PublicOrderPageContent() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
       const response = await fetch(`${apiUrl}/settings`, {
         method: 'GET',
+        headers: tenantHeaders(),
       });
       if (response.ok) {
         const data = await response.json();

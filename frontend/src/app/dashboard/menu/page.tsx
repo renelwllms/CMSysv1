@@ -7,6 +7,7 @@ import { menuService } from '@/services/menu.service';
 import { MenuItem, MenuCategory } from '@/types';
 import MenuItemForm from '@/components/MenuItemForm';
 import { formatCurrency } from '@/lib/currency';
+import { tenantHeaders } from '@/lib/tenant';
 
 export default function MenuManagementPage() {
   const { user, isLoading } = useAuth();
@@ -35,7 +36,7 @@ export default function MenuManagementPage() {
   const loadSettings = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const response = await fetch(`${apiUrl}/settings`);
+      const response = await fetch(`${apiUrl}/settings`, { headers: tenantHeaders() });
       if (response.ok) {
         const data = await response.json();
         setCurrency(data.currency || 'IDR');
