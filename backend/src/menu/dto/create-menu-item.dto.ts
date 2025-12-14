@@ -1,6 +1,28 @@
-import { IsString, IsNotEmpty, IsNumber, IsEnum, IsOptional, Min, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  IsEnum,
+  IsOptional,
+  Min,
+  IsBoolean,
+  IsArray,
+  ValidateNested,
+  ValidateIf,
+} from 'class-validator';
 import { MenuCategory } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Type, Transform, plainToInstance } from 'class-transformer';
+
+class MenuSizeDto {
+  @IsString()
+  @IsNotEmpty()
+  label: string; // e.g., Small, Medium, Large
+
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0)
+  price: number;
+}
 
 export class CreateMenuItemDto {
   @IsString()
@@ -19,10 +41,15 @@ export class CreateMenuItemDto {
   @IsOptional()
   descriptionId?: string; // Indonesian description
 
+  @Transform(({ value }) => {
+    if (value === '' || value === null || value === undefined) return undefined;
+    const num = Number(value);
+    return Number.isNaN(num) ? value : num;
+  })
+  @ValidateIf(o => !o.sizes || o.sizes.length === 0)
   @IsNumber()
-  @Type(() => Number)
   @Min(0)
-  price: number;
+  price?: number;
 
   @IsEnum(MenuCategory)
   @IsNotEmpty()
@@ -38,4 +65,24 @@ export class CreateMenuItemDto {
   @IsOptional()
   @Type(() => Boolean)
   isAvailable?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed.map((item) => plainToInstance(MenuSizeDto, item)) : parsed;
+      } catch {
+        return value;
+      }
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => plainToInstance(MenuSizeDto, item));
+    }
+    return value;
+  })
+  @ValidateNested({ each: true })
+  @Type(() => MenuSizeDto)
+  sizes?: MenuSizeDto[];
 }

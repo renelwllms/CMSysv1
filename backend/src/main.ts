@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -33,6 +34,9 @@ async function bootstrap() {
   app.useStaticAssets(join(__dirname, '..', '..', 'uploads'), {
     prefix: '/uploads',
   });
+
+  // Cookies
+  app.use(cookieParser());
 
   // Enable validation pipes globally
   app.useGlobalPipes(

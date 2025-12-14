@@ -20,6 +20,7 @@ export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormP
     imageUrl: '',
     stockQty: '',
     isAvailable: true,
+    sizes: [] as { label: string; price: string }[],
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -37,6 +38,7 @@ export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormP
         imageUrl: item.imageUrl || '',
         stockQty: item.stockQty?.toString() || '',
         isAvailable: item.isAvailable,
+        sizes: (item.sizes || []).map((s) => ({ label: s.label, price: s.price.toString() })),
       });
       // Set existing image as preview
       if (item.imageUrl) {
@@ -86,14 +88,33 @@ export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormP
     setLoading(true);
 
     try {
+      const cleanedSizes = formData.sizes
+        .filter(s => s.label && s.price)
+        .map(s => ({ label: s.label, price: Number(s.price) }));
+
+      if (cleanedSizes.length === 0 && formData.price === '') {
+        setError('Base price is required when no sizes are added.');
+        setLoading(false);
+        return;
+      }
+
+      if (formData.sizes.length > 0 && cleanedSizes.length === 0) {
+        setError('Please provide both label and price for at least one size.');
+        setLoading(false);
+        return;
+      }
+
       const formDataToSend = new FormData();
       formDataToSend.append('name', formData.name);
       if (formData.nameId) formDataToSend.append('nameId', formData.nameId);
       formDataToSend.append('category', formData.category);
-      formDataToSend.append('price', formData.price);
+      if (formData.price !== '') formDataToSend.append('price', formData.price);
       if (formData.description) formDataToSend.append('description', formData.description);
       if (formData.stockQty) formDataToSend.append('stockQty', formData.stockQty);
       formDataToSend.append('isAvailable', String(formData.isAvailable));
+      if (cleanedSizes.length > 0) {
+        formDataToSend.append('sizes', JSON.stringify(cleanedSizes));
+      }
 
       // Append image file if selected
       if (selectedFile) {
@@ -211,19 +232,87 @@ export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormP
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Price (Rp) <span className="text-red-500">*</span>
+                Base Price (Rp)
               </label>
               <input
                 type="number"
                 name="price"
                 value={formData.price}
                 onChange={handleChange}
-                required
                 min="0"
                 step="1000"
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 placeholder="e.g., 25000"
               />
+              <p className="text-xs text-gray-500 mt-1">Used if no sizes are set.</p>
+            </div>
+          </div>
+
+          {/* Sizes */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Sizes (optional)
+              </label>
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({
+                  ...prev,
+                  sizes: [...prev.sizes, { label: '', price: '' }],
+                }))}
+                className="text-sm text-indigo-600 hover:text-indigo-700 font-semibold"
+              >
+                + Add Size
+              </button>
+            </div>
+            {formData.sizes.length === 0 && (
+              <p className="text-xs text-gray-500">If sizes are added, customers must pick one and the price will come from the selected size.</p>
+            )}
+            <div className="space-y-2">
+              {formData.sizes.map((size, idx) => (
+                <div key={idx} className="grid grid-cols-5 gap-2 items-center">
+                  <input
+                    type="text"
+                    placeholder="Label (e.g., Small)"
+                    value={size.label}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData(prev => {
+                        const sizes = [...prev.sizes];
+                        sizes[idx] = { ...sizes[idx], label: value };
+                        return { ...prev, sizes };
+                      });
+                    }}
+                    className="col-span-2 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price"
+                    min="0"
+                    step="1000"
+                    value={size.price}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData(prev => {
+                        const sizes = [...prev.sizes];
+                        sizes[idx] = { ...sizes[idx], price: value };
+                        return { ...prev, sizes };
+                      });
+                    }}
+                    className="col-span-2 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({
+                      ...prev,
+                      sizes: prev.sizes.filter((_, i) => i !== idx),
+                    }))}
+                    className="text-red-600 hover:text-red-700 text-sm font-semibold"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
 

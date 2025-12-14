@@ -14,6 +14,10 @@ class OrderItemDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsString()
+  @IsOptional()
+  sizeLabel?: string;
 }
 
 export class CreateOrderDto {

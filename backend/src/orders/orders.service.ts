@@ -50,15 +50,26 @@ export class OrdersService {
         }
       }
 
-      const subtotal = Number(menuItem.price) * item.quantity;
+      // Resolve unit price (size-specific if provided)
+      let unitPrice = Number(menuItem.price);
+      if (item.sizeLabel && Array.isArray(menuItem.sizes)) {
+        const matchedSize = (menuItem.sizes as any[]).find((s) => s.label === item.sizeLabel);
+        if (!matchedSize) {
+          throw new BadRequestException(`Size ${item.sizeLabel} not available for ${menuItem.name}`);
+        }
+        unitPrice = Number(matchedSize.price);
+      }
+
+      const subtotal = unitPrice * item.quantity;
       totalAmount += subtotal;
 
       orderItems.push({
         menuItemId: item.menuItemId,
         quantity: item.quantity,
-        unitPrice: menuItem.price,
+        unitPrice,
         subtotal,
         notes: item.notes,
+        ...(item.sizeLabel ? { sizeLabel: item.sizeLabel } : {}),
       });
     }
 
@@ -126,6 +137,70 @@ export class OrdersService {
     this.ordersGateway.emitOrderCreated(order);
 
     return order;
+  }
+
+  async lookupStatus(orderNumber: string, phone: string) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        orderNumber,
+        customerPhone: phone,
+        tableCleared: false,
+      },
+      include: {
+        orderItems: {
+          include: {
+            menuItem: true,
+          },
+        },
+        table: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('No active order found for this table/phone combination');
+    }
+
+    return order;
+  }
+
+  async clearTable(orderNumber: string, phone: string) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        orderNumber,
+        customerPhone: phone,
+        status: {
+          in: [OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.REJECTED],
+        },
+        tableCleared: false,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('No completed or closed order found to clear for this table/phone');
+    }
+
+    return this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        tableCleared: true,
+        tableClearedAt: new Date(),
+        tableId: null,
+      },
+      include: {
+        orderItems: {
+          include: {
+            menuItem: true,
+          },
+        },
+        table: true,
+      },
+    });
   }
 
   async findAll(status?: OrderStatus, paymentStatus?: PaymentStatus) {
@@ -212,7 +287,13 @@ export class OrdersService {
     const order = await this.findOne(id);
 
     // Check if order can be edited (only before cooking starts)
-    const editableStatuses = [OrderStatus.PENDING_APPROVAL, OrderStatus.APPROVED, OrderStatus.WAITING, OrderStatus.PENDING, OrderStatus.PAID];
+    const editableStatuses: OrderStatus[] = [
+      OrderStatus.PENDING_APPROVAL,
+      OrderStatus.APPROVED,
+      OrderStatus.WAITING,
+      OrderStatus.PENDING,
+      OrderStatus.PAID,
+    ];
 
     if (!editableStatuses.includes(order.status)) {
       throw new BadRequestException('Cannot edit order after cooking has started or if order is completed/cancelled/rejected');
@@ -236,6 +317,7 @@ export class OrdersService {
         unitPrice: any;
         subtotal: number;
         notes?: string;
+        sizeLabel?: string;
       }> = [];
 
       for (const item of updateOrderDto.items) {
@@ -265,15 +347,26 @@ export class OrdersService {
           }
         }
 
-        const subtotal = Number(menuItem.price) * itemQuantity;
+        let unitPrice = Number(menuItem.price);
+
+        if (item.sizeLabel && Array.isArray(menuItem.sizes)) {
+          const matchedSize = (menuItem.sizes as any[]).find((s) => s.label === item.sizeLabel);
+          if (!matchedSize) {
+            throw new BadRequestException(`Size ${item.sizeLabel} not available for ${menuItem.name}`);
+          }
+          unitPrice = Number(matchedSize.price);
+        }
+
+        const subtotal = unitPrice * itemQuantity;
         totalAmount += subtotal;
 
         orderItems.push({
           menuItemId: item.menuItemId,
           quantity: itemQuantity,
-          unitPrice: menuItem.price,
+          unitPrice,
           subtotal,
           notes: item.notes,
+          ...(item.sizeLabel ? { sizeLabel: item.sizeLabel } : {}),
         });
       }
 
@@ -406,7 +499,7 @@ export class OrdersService {
     const requiresApproval = settings?.orderApprovalMode === 'REQUIRES_APPROVAL';
 
     // Define which statuses should be shown in kitchen
-    let kitchenStatuses = [OrderStatus.WAITING, OrderStatus.COOKING];
+    let kitchenStatuses: OrderStatus[] = [OrderStatus.WAITING, OrderStatus.COOKING];
 
     // If approval mode is enabled, also show APPROVED orders
     // (they will move to WAITING when staff approves)
@@ -593,10 +686,13 @@ export class OrdersService {
       } else {
         const customer = customersMap.get(order.customerPhone);
         customer.orderCount += 1;
-        customer.lastOrderDate = order.createdAt;
-        // Update name if it's more recent (in case customer changed their name)
         if (new Date(order.createdAt) > new Date(customer.lastOrderDate)) {
+          customer.lastOrderDate = order.createdAt;
+          // Update name if more recent (in case customer changed their name)
           customer.name = order.customerName;
+        }
+        if (new Date(order.createdAt) < new Date(customer.firstOrderDate)) {
+          customer.firstOrderDate = order.createdAt;
         }
       }
     });
@@ -624,6 +720,48 @@ export class OrdersService {
     return customersWithStats.sort((a, b) =>
       new Date(b.lastOrderDate).getTime() - new Date(a.lastOrderDate).getTime()
     );
+  }
+
+  async deleteCustomerByPhone(phone: string) {
+    const existing = await this.prisma.order.count({
+      where: { customerPhone: phone },
+    });
+
+    if (existing === 0) {
+      throw new NotFoundException(`No customer found with phone ${phone}`);
+    }
+
+    const deletedOrders = await this.prisma.order.deleteMany({
+      where: { customerPhone: phone },
+    });
+
+    return { deletedOrders: deletedOrders.count };
+  }
+
+  async exportCustomersCsv() {
+    const customers = await this.getAllCustomers();
+
+    const header = ['Name', 'Phone', 'First Order', 'Last Order', 'Total Orders', 'Total Spent'];
+    const rows = customers.map((c) => [
+      c.name,
+      c.phone,
+      new Date(c.firstOrderDate).toISOString(),
+      new Date(c.lastOrderDate).toISOString(),
+      c.orderCount.toString(),
+      c.totalSpent.toString(),
+    ]);
+
+    const escape = (value: string) => {
+      const shouldQuote = value.includes(',') || value.includes('"') || value.includes('\n');
+      const escaped = value.replace(/"/g, '""');
+      return shouldQuote ? `"${escaped}"` : escaped;
+    };
+
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => escape(cell)).join(','))
+      .join('\n');
+
+    return csv;
   }
 
   private async generateOrderNumber(): Promise<string> {

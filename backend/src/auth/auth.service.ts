@@ -4,12 +4,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import * as bcrypt from 'bcrypt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -72,16 +74,10 @@ export class AuthService {
     }
 
     // Generate JWT token
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
-
-    const accessToken = this.jwtService.sign(payload);
+    const tokens = this.generateTokens(user.id, user.email, user.role);
 
     return {
-      accessToken,
+      ...tokens,
       user: {
         id: user.id,
         email: user.email,
@@ -89,6 +85,35 @@ export class AuthService {
         role: user.role,
       },
     };
+  }
+
+  async refresh(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: this.getRefreshSecret(),
+      });
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (!user || !user.isActive) {
+        throw new UnauthorizedException('User not found or inactive');
+      }
+
+      const tokens = this.generateTokens(user.id, user.email, user.role);
+
+      return {
+        ...tokens,
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+        },
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
   }
 
   async validateUser(userId: string) {
@@ -123,5 +148,23 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  private generateTokens(userId: string, email: string, role: string) {
+    const payload = { sub: userId, email, role };
+    const accessToken = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_SECRET'),
+      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m',
+    });
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: this.getRefreshSecret(),
+      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d',
+    });
+
+    return { accessToken, refreshToken };
+  }
+
+  private getRefreshSecret() {
+    return this.configService.get<string>('JWT_REFRESH_SECRET') || this.configService.get<string>('JWT_SECRET');
   }
 }

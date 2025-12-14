@@ -46,9 +46,7 @@ export const tablesService = {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     const response = await fetch(`${apiUrl}/api/tables/${id}/qr-code/download`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      credentials: 'include',
     });
 
     if (!response.ok) {

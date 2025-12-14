@@ -11,6 +11,10 @@ class UpdateOrderItemDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  sizeLabel?: string;
 }
 
 export class UpdateOrderDto {

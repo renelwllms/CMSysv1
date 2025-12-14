@@ -2,12 +2,13 @@ import axios from '../lib/axios';
 import { AuthResponse, LoginCredentials, User } from '../types';
 
 export const authService = {
-  async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const { data } = await axios.post<AuthResponse>('/auth/login', credentials);
-    if (data.accessToken) {
-      localStorage.setItem('token', data.accessToken);
-      localStorage.setItem('user', JSON.stringify(data.user));
-    }
+  async login(credentials: LoginCredentials): Promise<{ user: User }> {
+    const { data } = await axios.post<{ user: User }>('/auth/login', credentials);
+    return data;
+  },
+
+  async refresh(): Promise<{ user: User | null }> {
+    const { data } = await axios.post<{ user: User | null }>('/auth/refresh');
     return data;
   },
 
@@ -16,29 +17,8 @@ export const authService = {
     return data;
   },
 
-  logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  async logout() {
+    await axios.post('/auth/logout');
     window.location.href = '/login';
-  },
-
-  getStoredUser(): User | null {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        return JSON.parse(userStr);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  },
-
-  getToken(): string | null {
-    return localStorage.getItem('token');
-  },
-
-  isAuthenticated(): boolean {
-    return !!this.getToken();
   },
 };

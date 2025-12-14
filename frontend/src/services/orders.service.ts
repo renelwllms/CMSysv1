@@ -11,6 +11,7 @@ export interface CreateOrderData {
     menuItemId: string;
     quantity: number;
     notes?: string;
+    sizeLabel?: string;
   }[];
   cakePickupDate?: string;
   cakeNotes?: string;
@@ -53,6 +54,16 @@ export const ordersService = {
 
   async create(orderData: CreateOrderData): Promise<Order> {
     const { data } = await axios.post<Order>('/orders', orderData);
+    return data;
+  },
+
+  async lookupStatus(orderNumber: string, phone: string): Promise<Order> {
+    const { data } = await axios.post<Order>('/orders/status-lookup', { orderNumber, phone });
+    return data;
+  },
+
+  async clearTable(orderNumber: string, phone: string): Promise<Order> {
+    const { data } = await axios.post<Order>('/orders/clear-table', { orderNumber, phone });
     return data;
   },
 

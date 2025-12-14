@@ -10,6 +10,8 @@ import { TablesModule } from './tables/tables.module';
 import { OrdersModule } from './orders/orders.module';
 import { TasksModule } from './tasks/tasks.module';
 import { SettingsModule } from './settings/settings.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -17,6 +19,10 @@ import { SettingsModule } from './settings/settings.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ThrottlerModule.forRoot([{
+      ttl: 60,
+      limit: 60,
+    }]),
     ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
@@ -27,6 +33,12 @@ import { SettingsModule } from './settings/settings.module';
     SettingsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

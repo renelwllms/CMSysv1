@@ -3,6 +3,8 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { menuService } from '@/services/menu.service';
+import { MenuItem } from '@/types';
 
 interface Settings {
   id?: string;
@@ -29,6 +31,7 @@ interface Settings {
     cakePercentage: number;
   };
   enableCabinetFoods: boolean;
+  upsellItemIds: string[];
 }
 
 export default function SettingsPage() {
@@ -54,11 +57,13 @@ export default function SettingsPage() {
       cakePercentage: 50,
     },
     enableCabinetFoods: true,
+    upsellItemIds: [],
   });
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [ogImagePreview, setOgImagePreview] = useState<string | null>(null);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -105,6 +110,7 @@ export default function SettingsPage() {
               cakePercentage: data.cakeDownPaymentPercentage || settings.downPayment.cakePercentage,
             },
             enableCabinetFoods: data.enableCabinetFoods ?? settings.enableCabinetFoods,
+            upsellItemIds: data.upsellItemIds || [],
           });
           if (data.logoUrl) {
             const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000';
@@ -122,9 +128,20 @@ export default function SettingsPage() {
     fetchSettings();
   }, []);
 
+  useEffect(() => {
+    const loadMenuItems = async () => {
+      try {
+        const items = await menuService.getAll(undefined, true);
+        setMenuItems(items);
+      } catch (error) {
+        console.error('Failed to load menu items for settings:', error);
+      }
+    };
+    loadMenuItems();
+  }, []);
+
   const handleSave = async () => {
     try {
-      const token = localStorage.getItem('token');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
       // Transform nested frontend structure to flat backend structure
@@ -148,6 +165,7 @@ export default function SettingsPage() {
         cakeOrderClearDays: settings.autoClearing.cakeOrderDays,
         cakeDownPaymentPercentage: settings.downPayment.cakePercentage,
         enableCabinetFoods: settings.enableCabinetFoods,
+        upsellItemIds: settings.upsellItemIds,
       };
 
       const response = await fetch(`${apiUrl}/settings`, {
@@ -155,7 +173,6 @@ export default function SettingsPage() {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(backendData),
       });
@@ -183,16 +200,12 @@ export default function SettingsPage() {
 
     setIsUploading(true);
     try {
-      const token = localStorage.getItem('token');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
       console.log('Uploading logo to:', `${apiUrl}/settings/upload-logo`);
 
       const response = await fetch(`${apiUrl}/settings/upload-logo`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
         body: formData,
       });
 
@@ -227,16 +240,12 @@ export default function SettingsPage() {
 
     setIsUploading(true);
     try {
-      const token = localStorage.getItem('token');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
       console.log('Uploading OG image to:', `${apiUrl}/settings/upload-og-image`);
 
       const response = await fetch(`${apiUrl}/settings/upload-og-image`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
         body: formData,
       });
 
@@ -631,6 +640,40 @@ export default function SettingsPage() {
                       Orders waiting for approval will be automatically cancelled after this many minutes. Default: 30 minutes
                     </p>
                   </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6">Upsell Items</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Select menu items to always feature in the cart upsell strip. Cabinet foods and drinks are included automatically.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-72 overflow-y-auto">
+                {menuItems.map((item) => {
+                  const checked = settings.upsellItemIds.includes(item.id);
+                  return (
+                    <label key={item.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:border-indigo-400 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const next = checked
+                            ? settings.upsellItemIds.filter((id) => id !== item.id)
+                            : [...settings.upsellItemIds, item.id];
+                          setSettings({ ...settings, upsellItemIds: next });
+                        }}
+                        className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">{item.name}</div>
+                        <div className="text-xs text-gray-500">{item.category}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+                {menuItems.length === 0 && (
+                  <div className="text-sm text-gray-500">No menu items loaded.</div>
                 )}
               </div>
             </div>

@@ -17,12 +17,15 @@ interface Customer {
 export default function CustomersPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<'recent' | 'orders' | 'spent'>('recent');
   const [currency, setCurrency] = useState<string>('IDR');
+  const [exporting, setExporting] = useState(false);
+  const [deletingPhone, setDeletingPhone] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -43,7 +46,6 @@ export default function CustomersPage() {
 
   const loadSettings = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
       const response = await fetch(`${apiUrl}/settings`);
       if (response.ok) {
         const data = await response.json();
@@ -61,12 +63,8 @@ export default function CustomersPage() {
   const loadCustomers = async () => {
     try {
       setLoading(true);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/orders/customers/all`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -109,6 +107,52 @@ export default function CustomersPage() {
     router.push(`/dashboard/orders?customer=${phone}`);
   };
 
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const response = await fetch(`${apiUrl}/orders/customers/export`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to export customers');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'customers.csv';
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export customers:', error);
+      alert('Failed to export customers. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDeleteCustomer = async (phone: string) => {
+    if (!confirm('Delete this customer and all their orders? This cannot be undone.')) {
+      return;
+    }
+    try {
+      setDeletingPhone(phone);
+      const response = await fetch(`${apiUrl}/orders/customers/${encodeURIComponent(phone)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete customer');
+      }
+      await loadCustomers();
+    } catch (error) {
+      console.error('Failed to delete customer:', error);
+      alert('Failed to delete customer. Please try again.');
+    } finally {
+      setDeletingPhone(null);
+    }
+  };
+
   if (isLoading || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -143,6 +187,13 @@ export default function CustomersPage() {
             </div>
             <div className="flex items-center space-x-3">
               <span className="text-sm text-gray-600">{user.fullName}</span>
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className="px-3 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {exporting ? 'Exporting…' : 'Export CSV'}
+              </button>
             </div>
           </div>
         </div>
@@ -150,39 +201,26 @@ export default function CustomersPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <div className="text-sm text-gray-600">Total Customers</div>
-            <div className="text-3xl font-bold text-gray-900 mt-2">{customers.length}</div>
+            <div className="mt-2 text-2xl md:text-3xl font-bold text-gray-900 leading-snug break-all">
+              {customers.length}
+            </div>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <div className="text-sm text-gray-600">Total Orders</div>
-            <div className="text-3xl font-bold text-indigo-600 mt-2">
+            <div className="mt-2 text-2xl md:text-3xl font-bold text-indigo-600 leading-snug break-all">
               {customers.reduce((sum, c) => sum + c.orderCount, 0)}
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm">
-            <div className="text-sm text-gray-600">Total Revenue</div>
-            <div className="text-3xl font-bold text-green-600 mt-2">
-              {formatCurrency(customers.reduce((sum, c) => sum + c.totalSpent, 0), currency)}
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm">
-            <div className="text-sm text-gray-600">Avg. Order Value</div>
-            <div className="text-3xl font-bold text-purple-600 mt-2">
-              {customers.length > 0
-                ? formatCurrency(Math.round(customers.reduce((sum, c) => sum + c.totalSpent, 0) /
-                  customers.reduce((sum, c) => sum + c.orderCount, 0)), currency)
-                : formatCurrency(0, currency)}
             </div>
           </div>
         </div>
 
         {/* Filters and Search */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex flex-col md:flex-row md:items-end gap-4">
             {/* Search */}
-            <div className="relative">
+            <div className="relative flex-1">
               <input
                 type="text"
                 placeholder="Search by name or phone..."
@@ -201,7 +239,7 @@ export default function CustomersPage() {
             </div>
 
             {/* Sort By */}
-            <div>
+            <div className="w-full md:w-56">
               <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
               <select
                 value={sortBy}
@@ -297,6 +335,13 @@ export default function CustomersPage() {
                           className="text-indigo-600 hover:text-indigo-900"
                         >
                           View Orders
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCustomer(customer.phone)}
+                          className="ml-4 text-red-600 hover:text-red-800 disabled:opacity-60"
+                          disabled={deletingPhone === customer.phone}
+                        >
+                          {deletingPhone === customer.phone ? 'Deleting…' : 'Delete'}
                         </button>
                       </td>
                     </tr>

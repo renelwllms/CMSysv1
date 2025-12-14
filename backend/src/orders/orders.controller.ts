@@ -9,16 +9,20 @@ import {
   UseGuards,
   Delete,
   Put,
+  Res,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { OrderStatusLookupDto } from './dto/order-status-lookup.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole, OrderStatus, PaymentStatus } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
+import { Response } from 'express';
 
 @Controller('orders')
 export class OrdersController {
@@ -26,6 +30,7 @@ export class OrdersController {
 
   // Public endpoint - customer creates order
   @Post()
+  @Throttle({ default: { limit: 30, ttl: 60 } })
   create(@Body() createOrderDto: CreateOrderDto) {
     return this.ordersService.create(createOrderDto);
   }
@@ -40,6 +45,20 @@ export class OrdersController {
   @Get('customer/:phone')
   getOrdersByPhone(@Param('phone') phone: string) {
     return this.ordersService.getOrdersByCustomerPhone(phone);
+  }
+
+  // Public endpoint - check status by table number and phone
+  @Post('status-lookup')
+  @Throttle({ default: { limit: 10, ttl: 60 } })
+  lookupStatus(@Body() body: OrderStatusLookupDto) {
+    return this.ordersService.lookupStatus(body.orderNumber, body.phone);
+  }
+
+  // Public endpoint - clear table for completed orders
+  @Post('clear-table')
+  @Throttle({ default: { limit: 10, ttl: 60 } })
+  clearTable(@Body() body: OrderStatusLookupDto) {
+    return this.ordersService.clearTable(body.orderNumber, body.phone);
   }
 
   // Staff/Admin - get all orders with filters
@@ -91,6 +110,25 @@ export class OrdersController {
   @Roles(UserRole.ADMIN)
   getAllCustomers() {
     return this.ordersService.getAllCustomers();
+  }
+
+  // Admin - export customers as CSV
+  @Get('customers/export')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async exportCustomers(@Res() res: Response) {
+    const csv = await this.ordersService.exportCustomersCsv();
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="customers.csv"');
+    res.send(csv);
+  }
+
+  // Admin - delete customer and their orders
+  @Delete('customers/:phone')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  deleteCustomer(@Param('phone') phone: string) {
+    return this.ordersService.deleteCustomerByPhone(phone);
   }
 
   // Get single order

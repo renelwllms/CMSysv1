@@ -554,6 +554,9 @@ function OrdersManagementPageContent() {
                   <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 rounded">
                     <div>
                       <div className="font-medium">{item.menuItem?.name || 'Unknown Item'}</div>
+                      {item.sizeLabel && (
+                        <div className="text-xs text-gray-600">Size: {item.sizeLabel}</div>
+                      )}
                       <div className="text-sm text-gray-600">Qty: {item.quantity} × {formatCurrency(item.unitPrice, currency)}</div>
                       {item.notes && <div className="text-xs text-gray-500 mt-1">{item.notes}</div>}
                     </div>

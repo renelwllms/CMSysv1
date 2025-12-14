@@ -93,11 +93,8 @@ export default function KitchenDisplayPage() {
   const loadStats = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/orders/kitchen/stats`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -316,6 +313,9 @@ export default function KitchenDisplayPage() {
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
                               <div className="font-bold text-xl text-gray-900">{item.menuItem?.name}</div>
+                              {item.sizeLabel && (
+                                <div className="text-xs text-gray-600 mt-0.5">Size: {item.sizeLabel}</div>
+                              )}
                               {item.notes && (
                                 <div className="text-sm text-red-600 font-medium mt-1">
                                   Note: {item.notes}
@@ -396,6 +396,9 @@ export default function KitchenDisplayPage() {
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
                               <div className="font-bold text-xl text-gray-900">{item.menuItem?.name}</div>
+                              {item.sizeLabel && (
+                                <div className="text-xs text-gray-600 mt-0.5">Size: {item.sizeLabel}</div>
+                              )}
                               {item.notes && (
                                 <div className="text-sm text-red-600 font-medium mt-1">
                                   Note: {item.notes}

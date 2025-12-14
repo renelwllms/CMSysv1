@@ -78,11 +78,8 @@ export default function AnalyticsPage() {
       setLoading(true);
       // Get analytics data from backend
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/orders/analytics`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {

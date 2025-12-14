@@ -11,17 +11,26 @@ export class MenuService {
   constructor(private prisma: PrismaService) {}
 
   async create(createMenuItemDto: CreateMenuItemDto, imageUrl?: string) {
+    const sizes = createMenuItemDto.sizes ? (createMenuItemDto.sizes as any) : undefined;
+    const resolvedPrice =
+      createMenuItemDto.price ?? (Array.isArray(sizes) && sizes.length > 0 ? sizes[0].price : undefined);
+
+    if (resolvedPrice === undefined) {
+      throw new BadRequestException('Price is required when no sizes are provided');
+    }
+
     return this.prisma.menuItem.create({
       data: {
         name: createMenuItemDto.name,
         nameId: createMenuItemDto.nameId,
         description: createMenuItemDto.description,
         descriptionId: createMenuItemDto.descriptionId,
-        price: createMenuItemDto.price,
+        price: resolvedPrice,
         category: createMenuItemDto.category,
         stockQty: createMenuItemDto.stockQty,
         isAvailable: createMenuItemDto.isAvailable ?? true,
         imageUrl,
+        sizes,
       },
     });
   }
@@ -73,6 +82,7 @@ export class MenuService {
     if (updateMenuItemDto.stockQty !== undefined) updateData.stockQty = updateMenuItemDto.stockQty;
     if (updateMenuItemDto.isAvailable !== undefined) updateData.isAvailable = updateMenuItemDto.isAvailable;
     if (imageUrl) updateData.imageUrl = imageUrl;
+    if (updateMenuItemDto.sizes !== undefined) updateData.sizes = updateMenuItemDto.sizes as any;
 
     return this.prisma.menuItem.update({
       where: { id },

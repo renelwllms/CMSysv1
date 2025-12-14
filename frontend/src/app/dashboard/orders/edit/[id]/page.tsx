@@ -18,6 +18,8 @@ interface CartItem {
   menuItem: MenuItem;
   quantity: number;
   notes?: string;
+  sizeLabel?: string;
+  unitPrice: number;
 }
 
 export default function EditOrderPage() {
@@ -103,6 +105,8 @@ export default function EditOrderPage() {
           menuItem: item.menuItem!,
           quantity: item.quantity,
           notes: item.notes || '',
+          sizeLabel: item.sizeLabel || undefined,
+          unitPrice: Number(item.unitPrice),
         }));
       setCart(cartItems);
     } catch (error) {
@@ -117,11 +121,8 @@ export default function EditOrderPage() {
   const loadTables = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/tables`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -135,11 +136,8 @@ export default function EditOrderPage() {
   const loadMenuItems = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/menu`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -173,42 +171,45 @@ export default function EditOrderPage() {
     setFilteredMenuItems(filtered);
   };
 
-  const addToCart = (menuItem: MenuItem) => {
-    const existingItem = cart.find(item => item.menuItem.id === menuItem.id);
+  const addToCart = (menuItem: MenuItem, sizeLabel?: string) => {
+    const unitPrice = sizeLabel && menuItem.sizes
+      ? Number(menuItem.sizes.find(s => s.label === sizeLabel)?.price ?? menuItem.price)
+      : Number(menuItem.price);
+    const existingItem = cart.find(item => item.menuItem.id === menuItem.id && item.sizeLabel === sizeLabel);
     if (existingItem) {
       setCart(cart.map(item =>
-        item.menuItem.id === menuItem.id
-          ? { ...item, quantity: item.quantity + 1 }
+        item.menuItem.id === menuItem.id && item.sizeLabel === sizeLabel
+          ? { ...item, quantity: item.quantity + 1, unitPrice }
           : item
       ));
     } else {
-      setCart([...cart, { menuItem, quantity: 1, notes: '' }]);
+      setCart([...cart, { menuItem, quantity: 1, notes: '', sizeLabel, unitPrice }]);
     }
   };
 
-  const updateQuantity = (menuItemId: string, quantity: number) => {
+  const updateQuantity = (menuItemId: string, quantity: number, sizeLabel?: string) => {
     if (quantity <= 0) {
-      removeFromCart(menuItemId);
+      setCart(cart.filter(item => !(item.menuItem.id === menuItemId && item.sizeLabel === sizeLabel)));
     } else {
       setCart(cart.map(item =>
-        item.menuItem.id === menuItemId ? { ...item, quantity } : item
+        item.menuItem.id === menuItemId && item.sizeLabel === sizeLabel ? { ...item, quantity } : item
       ));
     }
   };
 
-  const updateNotes = (menuItemId: string, notes: string) => {
+  const updateNotes = (menuItemId: string, notes: string, sizeLabel?: string) => {
     setCart(cart.map(item =>
-      item.menuItem.id === menuItemId ? { ...item, notes } : item
+      item.menuItem.id === menuItemId && item.sizeLabel === sizeLabel ? { ...item, notes } : item
     ));
   };
 
-  const removeFromCart = (menuItemId: string) => {
-    setCart(cart.filter(item => item.menuItem.id !== menuItemId));
+  const removeFromCart = (menuItemId: string, sizeLabel?: string) => {
+    setCart(cart.filter(item => !(item.menuItem.id === menuItemId && item.sizeLabel === sizeLabel)));
   };
 
   const calculateTotal = () => {
     return cart.reduce((total, item) => {
-      return total + (Number(item.menuItem.price) * item.quantity);
+      return total + (Number(item.unitPrice ?? item.menuItem.price) * item.quantity);
     }, 0);
   };
 
@@ -240,6 +241,7 @@ export default function EditOrderPage() {
           menuItemId: item.menuItem.id,
           quantity: item.quantity,
           notes: item.notes || undefined,
+          sizeLabel: item.sizeLabel,
         })),
       };
 
@@ -375,26 +377,47 @@ export default function EditOrderPage() {
               {/* Menu Items Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto">
                 {filteredMenuItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => addToCart(item)}
-                    className="p-4 rounded-lg border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all text-left"
-                  >
-                    <div className="flex justify-between items-start">
+                  <div key={item.id} className="p-4 rounded-lg border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all text-left">
+                    <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
                         <div className="font-medium text-gray-900">{item.name}</div>
                         <div className="text-sm text-gray-500 mt-1">{item.description}</div>
                         <div className="text-sm font-semibold text-indigo-600 mt-2">
-                          {formatCurrency(Number(item.price), currency)}
+                          {item.sizes && item.sizes.length > 0
+                            ? `${item.sizes[0].label}: ${formatCurrency(Number(item.sizes[0].price), currency)}`
+                            : formatCurrency(Number(item.price), currency)}
                         </div>
                       </div>
                       {cart.find(cartItem => cartItem.menuItem.id === item.id) && (
                         <span className="ml-2 px-2 py-1 bg-indigo-100 text-indigo-600 text-xs font-semibold rounded-full">
-                          {cart.find(cartItem => cartItem.menuItem.id === item.id)?.quantity}
+                          {cart
+                            .filter(cartItem => cartItem.menuItem.id === item.id)
+                            .reduce((sum, ci) => sum + ci.quantity, 0)}
                         </span>
                       )}
                     </div>
-                  </button>
+                    {item.sizes && item.sizes.length > 0 ? (
+                      <div className="space-y-2">
+                        {item.sizes.map((size) => (
+                          <button
+                            key={size.label}
+                            onClick={() => addToCart(item, size.label)}
+                            className="w-full mt-1 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg border border-indigo-200 transition-colors flex justify-between"
+                          >
+                            <span>{size.label}</span>
+                            <span className="font-semibold">{formatCurrency(Number(size.price), currency)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => addToCart(item)}
+                        className="w-full mt-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      >
+                        Add to Order
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -411,16 +434,19 @@ export default function EditOrderPage() {
               ) : (
                 <div className="space-y-4">
                   {cart.map((item) => (
-                    <div key={item.menuItem.id} className="border border-gray-200 rounded-lg p-3">
+                    <div key={`${item.menuItem.id}-${item.sizeLabel || 'base'}`} className="border border-gray-200 rounded-lg p-3">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex-1">
                           <div className="font-medium text-gray-900">{item.menuItem.name}</div>
+                          {item.sizeLabel && (
+                            <div className="text-xs text-gray-500">Size: {item.sizeLabel}</div>
+                          )}
                           <div className="text-sm text-gray-500">
-                            {formatCurrency(Number(item.menuItem.price), currency)}
+                            {formatCurrency(Number(item.unitPrice ?? item.menuItem.price), currency)}
                           </div>
                         </div>
                         <button
-                          onClick={() => removeFromCart(item.menuItem.id)}
+                          onClick={() => removeFromCart(item.menuItem.id, item.sizeLabel)}
                           className="text-red-600 hover:text-red-800"
                         >
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -431,7 +457,7 @@ export default function EditOrderPage() {
 
                       <div className="flex items-center space-x-2 mb-2">
                         <button
-                          onClick={() => updateQuantity(item.menuItem.id, item.quantity - 1)}
+                          onClick={() => updateQuantity(item.menuItem.id, item.quantity - 1, item.sizeLabel)}
                           className="p-1 rounded bg-gray-100 hover:bg-gray-200"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -441,12 +467,12 @@ export default function EditOrderPage() {
                         <input
                           type="number"
                           value={item.quantity}
-                          onChange={(e) => updateQuantity(item.menuItem.id, parseInt(e.target.value) || 0)}
+                          onChange={(e) => updateQuantity(item.menuItem.id, parseInt(e.target.value) || 0, item.sizeLabel)}
                           className="w-16 text-center border border-gray-300 rounded px-2 py-1"
                           min="1"
                         />
                         <button
-                          onClick={() => updateQuantity(item.menuItem.id, item.quantity + 1)}
+                          onClick={() => updateQuantity(item.menuItem.id, item.quantity + 1, item.sizeLabel)}
                           className="p-1 rounded bg-gray-100 hover:bg-gray-200"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -459,12 +485,12 @@ export default function EditOrderPage() {
                         type="text"
                         placeholder="Notes (optional)"
                         value={item.notes}
-                        onChange={(e) => updateNotes(item.menuItem.id, e.target.value)}
+                        onChange={(e) => updateNotes(item.menuItem.id, e.target.value, item.sizeLabel)}
                         className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500"
                       />
 
                       <div className="text-right mt-2 font-semibold text-gray-900">
-                        {formatCurrency(Number(item.menuItem.price) * item.quantity, currency)}
+                        {formatCurrency(Number(item.unitPrice ?? item.menuItem.price) * item.quantity, currency)}
                       </div>
                     </div>
                   ))}

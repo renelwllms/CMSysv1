@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { MenuItem, MenuCategory, Order } from '@/types';
 import { formatCurrency } from '@/lib/currency';
 
@@ -17,11 +17,16 @@ interface CartItem {
   menuItem: MenuItem;
   quantity: number;
   notes?: string;
+  sizeLabel?: string;
+  unitPrice: number;
 }
 
 export default function NewOrderPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const baseMediaUrl = useMemo(() => {
+    return process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000';
+  }, []);
 
   // Step state
   const [step, setStep] = useState(1); // 1: Table, 2: Menu Items, 3: Customer Info
@@ -84,11 +89,8 @@ export default function NewOrderPage() {
   const loadTables = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/tables`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -104,11 +106,8 @@ export default function NewOrderPage() {
   const loadMenuItems = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/menu`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -135,45 +134,49 @@ export default function NewOrderPage() {
     setFilteredMenuItems(filtered);
   };
 
-  const addToCart = (menuItem: MenuItem) => {
-    const existing = cart.find(item => item.menuItem.id === menuItem.id);
+  const addToCart = (menuItem: MenuItem, sizeLabel?: string) => {
+    const unitPrice = sizeLabel && menuItem.sizes
+      ? Number(menuItem.sizes.find(s => s.label === sizeLabel)?.price ?? menuItem.price)
+      : Number(menuItem.price);
+
+    const existing = cart.find(item => item.menuItem.id === menuItem.id && item.sizeLabel === sizeLabel);
     if (existing) {
       setCart(cart.map(item =>
-        item.menuItem.id === menuItem.id
-          ? { ...item, quantity: item.quantity + 1 }
+        item.menuItem.id === menuItem.id && item.sizeLabel === sizeLabel
+          ? { ...item, quantity: item.quantity + 1, unitPrice }
           : item
       ));
     } else {
-      setCart([...cart, { menuItem, quantity: 1 }]);
+      setCart([{ menuItem, quantity: 1, sizeLabel, unitPrice }, ...cart]);
     }
   };
 
-  const updateQuantity = (menuItemId: string, quantity: number) => {
+  const updateQuantity = (menuItemId: string, quantity: number, sizeLabel?: string) => {
     if (quantity === 0) {
-      removeFromCart(menuItemId);
+      setCart(cart.filter(item => !(item.menuItem.id === menuItemId && item.sizeLabel === sizeLabel)));
     } else {
       setCart(cart.map(item =>
-        item.menuItem.id === menuItemId
+        item.menuItem.id === menuItemId && item.sizeLabel === sizeLabel
           ? { ...item, quantity }
           : item
       ));
     }
   };
 
-  const removeFromCart = (menuItemId: string) => {
-    setCart(cart.filter(item => item.menuItem.id !== menuItemId));
+  const removeFromCart = (menuItemId: string, sizeLabel?: string) => {
+    setCart(cart.filter(item => !(item.menuItem.id === menuItemId && item.sizeLabel === sizeLabel)));
   };
 
-  const updateItemNotes = (menuItemId: string, notes: string) => {
+  const updateItemNotes = (menuItemId: string, notes: string, sizeLabel?: string) => {
     setCart(cart.map(item =>
-      item.menuItem.id === menuItemId
+      item.menuItem.id === menuItemId && item.sizeLabel === sizeLabel
         ? { ...item, notes }
         : item
     ));
   };
 
   const calculateTotal = () => {
-    return cart.reduce((total, item) => total + Number(item.menuItem.price) * item.quantity, 0);
+    return cart.reduce((total, item) => total + Number(item.unitPrice) * item.quantity, 0);
   };
 
   const handleSubmitOrder = async () => {
@@ -196,6 +199,7 @@ export default function NewOrderPage() {
           menuItemId: item.menuItem.id,
           quantity: item.quantity,
           notes: item.notes,
+          sizeLabel: item.sizeLabel,
         })),
       };
 
@@ -392,24 +396,61 @@ export default function NewOrderPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredMenuItems.map((item) => (
                   <div key={item.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-start space-x-3 mb-3">
+                      <div className="h-20 w-20 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                        {item.imageUrl ? (
+                          <img
+                            src={`${baseMediaUrl}${item.imageUrl}`}
+                            alt={item.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-xs text-gray-400">
+                            No image
+                          </div>
+                        )}
+                      </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{item.name}</h3>
-                        <p className="text-sm text-gray-600">{item.description}</p>
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                          <span className="text-xs uppercase bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                            {item.category.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        {item.description && (
+                          <p className="text-sm text-gray-600 line-clamp-2">{item.description}</p>
+                        )}
                         <p className="text-lg font-bold text-indigo-600 mt-2">
-                          {formatCurrency(item.price, currency)}
+                          {item.sizes && item.sizes.length > 0
+                            ? `${item.sizes[0].label}: ${formatCurrency(Number(item.sizes[0].price), currency)}`
+                            : formatCurrency(item.price, currency)}
                         </p>
                         {item.category === MenuCategory.CABINET_FOOD && item.stockQty !== null && (
                           <p className="text-xs text-gray-500">Stock: {item.stockQty}</p>
                         )}
                       </div>
                     </div>
-                    <button
-                      onClick={() => addToCart(item)}
-                      className="w-full mt-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                    >
-                      Add to Order
-                    </button>
+                    {item.sizes && item.sizes.length > 0 ? (
+                      <div className="space-y-2">
+                        {item.sizes.map((size) => (
+                          <button
+                            key={size.label}
+                            onClick={() => addToCart(item, size.label)}
+                            className="w-full mt-1 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg border border-indigo-200 transition-colors flex justify-between"
+                          >
+                            <span>{size.label}</span>
+                            <span className="font-semibold">{formatCurrency(Number(size.price), currency)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => addToCart(item)}
+                        className="w-full mt-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      >
+                        Add to Order
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -434,55 +475,58 @@ export default function NewOrderPage() {
                   <>
                     <div className="space-y-4 mb-4 max-h-96 overflow-y-auto">
                       {cart.map((item) => (
-                        <div key={item.menuItem.id} className="border-b border-gray-200 pb-4">
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-gray-900">{item.menuItem.name}</h4>
-                              <p className="text-sm text-gray-600">
-                                {formatCurrency(item.menuItem.price, currency)} each
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => removeFromCart(item.menuItem.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
+        <div key={`${item.menuItem.id}-${item.sizeLabel || 'base'}`} className="border-b border-gray-200 pb-4">
+          <div className="flex justify-between items-start mb-2">
+            <div className="flex-1">
+              <h4 className="font-medium text-gray-900">{item.menuItem.name}</h4>
+              {item.sizeLabel && (
+                <p className="text-xs text-gray-500">Size: {item.sizeLabel}</p>
+              )}
+              <p className="text-sm text-gray-600">
+                {formatCurrency(item.unitPrice, currency)} each
+              </p>
+            </div>
+            <button
+              onClick={() => removeFromCart(item.menuItem.id, item.sizeLabel)}
+              className="text-red-600 hover:text-red-700"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
                             </button>
                           </div>
 
-                          <div className="flex items-center space-x-2 mb-2">
-                            <button
-                              onClick={() => updateQuantity(item.menuItem.id, item.quantity - 1)}
-                              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-                            >
-                              -
-                            </button>
-                            <span className="px-4 py-1 bg-gray-100 rounded font-medium">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => updateQuantity(item.menuItem.id, item.quantity + 1)}
-                              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-                            >
-                              +
-                            </button>
-                          </div>
+          <div className="flex items-center space-x-2 mb-2">
+            <button
+              onClick={() => updateQuantity(item.menuItem.id, item.quantity - 1, item.sizeLabel)}
+              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+            >
+              -
+            </button>
+            <span className="px-4 py-1 bg-gray-100 rounded font-medium">
+              {item.quantity}
+            </span>
+            <button
+              onClick={() => updateQuantity(item.menuItem.id, item.quantity + 1, item.sizeLabel)}
+              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+            >
+              +
+            </button>
+          </div>
 
-                          <input
-                            type="text"
-                            placeholder="Special notes..."
-                            value={item.notes || ''}
-                            onChange={(e) => updateItemNotes(item.menuItem.id, e.target.value)}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500"
-                          />
+          <input
+            type="text"
+            placeholder="Special notes..."
+            value={item.notes || ''}
+            onChange={(e) => updateItemNotes(item.menuItem.id, e.target.value, item.sizeLabel)}
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500"
+          />
 
-                          <p className="text-right font-semibold text-gray-900 mt-2">
-                            {formatCurrency(Number(item.menuItem.price) * item.quantity, currency)}
-                          </p>
-                        </div>
-                      ))}
+          <p className="text-right font-semibold text-gray-900 mt-2">
+            {formatCurrency(Number(item.unitPrice) * item.quantity, currency)}
+          </p>
+        </div>
+      ))}
                     </div>
 
                     <div className="border-t border-gray-300 pt-4 mb-4">
@@ -570,11 +614,11 @@ export default function NewOrderPage() {
                   <span className="font-medium">{cart.length} items</span>
                 </div>
                 {cart.map((item) => (
-                  <div key={item.menuItem.id} className="flex justify-between text-sm pl-4">
+                  <div key={`${item.menuItem.id}-${item.sizeLabel || 'base'}`} className="flex justify-between text-sm pl-4">
                     <span className="text-gray-600">
-                      {item.menuItem.name} × {item.quantity}
+                      {item.menuItem.name} {item.sizeLabel ? `(${item.sizeLabel}) ` : ''}× {item.quantity}
                     </span>
-                    <span>{formatCurrency(Number(item.menuItem.price) * item.quantity, currency)}</span>
+                    <span>{formatCurrency(Number(item.unitPrice) * item.quantity, currency)}</span>
                   </div>
                 ))}
               </div>

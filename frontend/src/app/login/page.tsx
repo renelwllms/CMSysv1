@@ -18,19 +18,11 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await login({ email, password });
-
-      // Check user role and redirect accordingly
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        if (user.role === 'KITCHEN') {
-          router.push('/dashboard/kitchen');
-        } else if (user.role === 'STAFF') {
-          router.push('/dashboard/orders');
-        } else {
-          router.push('/dashboard');
-        }
+      const user = await login({ email, password });
+      if (user.role === 'KITCHEN') {
+        router.push('/dashboard/kitchen');
+      } else if (user.role === 'STAFF') {
+        router.push('/dashboard/orders');
       } else {
         router.push('/dashboard');
       }

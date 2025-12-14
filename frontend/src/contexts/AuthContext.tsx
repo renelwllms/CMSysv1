@@ -8,7 +8,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<User>;
   logout: () => void;
 }
 
@@ -19,22 +19,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in
-    const storedUser = authService.getStoredUser();
-    if (storedUser) {
-      setUser(storedUser);
-    }
-    setIsLoading(false);
+    const init = async () => {
+      try {
+        const { user } = await authService.refresh();
+        if (user) {
+          setUser(user);
+        }
+      } catch (err) {
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    init();
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
     const response = await authService.login(credentials);
     setUser(response.user);
+    return response.user;
   };
 
   const logout = () => {
     authService.logout();
-    setUser(null);
   };
 
   return (

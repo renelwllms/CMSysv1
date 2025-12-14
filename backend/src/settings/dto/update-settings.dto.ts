@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsBoolean, IsEnum, IsDecimal } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+  IsDecimal,
+  IsNumber,
+  IsArray,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { Language } from '@prisma/client';
 
 export class UpdateSettingsDto {
@@ -77,9 +86,13 @@ export class UpdateSettingsDto {
   enableIndonesian?: boolean;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   taxRate?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   serviceChargeRate?: number;
 
   @IsOptional()
@@ -87,6 +100,8 @@ export class UpdateSettingsDto {
   orderApprovalMode?: string;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   autoClearUnapprovedMinutes?: number;
 
   @IsOptional()
@@ -94,12 +109,18 @@ export class UpdateSettingsDto {
   autoClearingEnabled?: boolean;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   normalOrderClearHours?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   cakeOrderClearDays?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   cakeDownPaymentPercentage?: number;
 
   @IsOptional()
@@ -109,4 +130,9 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsString()
   currency?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  upsellItemIds?: string[];
 }

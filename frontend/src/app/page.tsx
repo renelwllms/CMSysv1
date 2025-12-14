@@ -4,12 +4,59 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function Home() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const { language, setLanguage } = useLanguage();
   const [showContent, setShowContent] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const copy = {
+    en: {
+      nav: {
+        features: 'Features',
+        about: 'About',
+        services: 'Services',
+        contact: 'Contact',
+        login: 'Login',
+      },
+      hero: {
+        title1: 'Modern Cafe Management',
+        title2: 'Made Simple',
+        subtitle: 'Complete solution for managing your cafe operations. From QR code ordering to kitchen display systems, analytics, and more.',
+        cta: 'Get Started',
+        learnMore: 'Learn More',
+      },
+      sections: {
+        features: 'Features',
+        featuresHeadline: 'Everything you need to run your cafe',
+        featuresSub: 'Powerful features designed specifically for the fast-paced cafe environment',
+      },
+    },
+    id: {
+      nav: {
+        features: 'Fitur',
+        about: 'Tentang',
+        services: 'Layanan',
+        contact: 'Kontak',
+        login: 'Masuk',
+      },
+      hero: {
+        title1: 'Manajemen Kafe Modern',
+        title2: 'Jadi Sederhana',
+        subtitle: 'Solusi lengkap untuk mengelola operasional kafe Anda. Dari pemesanan QR, layar dapur, analitik, dan lainnya.',
+        cta: 'Mulai Sekarang',
+        learnMore: 'Pelajari Lebih Lanjut',
+      },
+      sections: {
+        features: 'Fitur',
+        featuresHeadline: 'Semua yang Anda butuhkan untuk kafe Anda',
+        featuresSub: 'Fitur kuat yang dirancang khusus untuk lingkungan kafe yang cepat',
+      },
+    },
+  } as const;
 
   useEffect(() => {
     if (!isLoading) {
@@ -20,6 +67,45 @@ export default function Home() {
       }
     }
   }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    // Light geo/browser-based detection; respects any previously chosen language in localStorage
+    const savedLanguage = localStorage.getItem('language');
+    if (savedLanguage) return;
+
+    const chooseId = () => setLanguage('id');
+    const chooseEn = () => setLanguage('en');
+
+    const browserLang = navigator.language?.toLowerCase() || '';
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone?.toLowerCase() || '';
+    if (browserLang.startsWith('id') || timeZone.includes('jakarta') || timeZone.includes('makassar') || timeZone.includes('pontianak')) {
+      chooseId();
+      return;
+    }
+
+    // IP-based fallback
+    const controller = new AbortController();
+    const geoUrl = process.env.NEXT_PUBLIC_GEOLOOKUP_URL || 'https://ipapi.co/json/';
+    fetch(geoUrl, { signal: controller.signal })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (!data) {
+          chooseEn();
+          return;
+        }
+        const country = (data.country || data.country_code || '').toString().toLowerCase();
+        if (country === 'id' || country === 'indo' || country === 'idn') {
+          chooseId();
+        } else {
+          chooseEn();
+        }
+      })
+      .catch(() => {
+        chooseEn();
+      });
+
+    return () => controller.abort();
+  }, [setLanguage]);
 
   if (isLoading || !showContent) {
     return (
@@ -46,22 +132,36 @@ export default function Home() {
             {/* Desktop menu */}
             <div className="hidden md:flex items-center space-x-6">
               <Link href="/features" className="text-sm font-medium text-gray-700 hover:text-indigo-600">
-                Features
+                {copy[language].nav.features}
               </Link>
               <Link href="/about" className="text-sm font-medium text-gray-700 hover:text-indigo-600">
-                About
+                {copy[language].nav.about}
               </Link>
               <Link href="/services" className="text-sm font-medium text-gray-700 hover:text-indigo-600">
-                Services
+                {copy[language].nav.services}
               </Link>
               <Link href="/contact" className="text-sm font-medium text-gray-700 hover:text-indigo-600">
-                Contact
+                {copy[language].nav.contact}
               </Link>
+              <div className="flex items-center bg-gray-100 rounded-lg px-1">
+                <button
+                  onClick={() => setLanguage('en')}
+                  className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${language === 'en' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  EN
+                </button>
+                <button
+                  onClick={() => setLanguage('id')}
+                  className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${language === 'id' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  ID
+                </button>
+              </div>
               <Link
                 href="/login"
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
-                Login
+                {copy[language].nav.login}
               </Link>
             </div>
 
@@ -94,31 +194,45 @@ export default function Home() {
                 href="/features"
                 className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
               >
-                Features
+                {copy[language].nav.features}
               </Link>
               <Link
                 href="/about"
                 className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
               >
-                About
+                {copy[language].nav.about}
               </Link>
               <Link
                 href="/services"
                 className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
               >
-                Services
+                {copy[language].nav.services}
               </Link>
               <Link
                 href="/contact"
                 className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
               >
-                Contact
+                {copy[language].nav.contact}
               </Link>
+              <div className="flex items-center space-x-2 px-3 py-2">
+                <button
+                  onClick={() => setLanguage('en')}
+                  className={`px-3 py-1 rounded text-sm font-semibold transition-colors ${language === 'en' ? 'bg-gray-900 text-white' : 'text-gray-700 bg-gray-100'}`}
+                >
+                  EN
+                </button>
+                <button
+                  onClick={() => setLanguage('id')}
+                  className={`px-3 py-1 rounded text-sm font-semibold transition-colors ${language === 'id' ? 'bg-gray-900 text-white' : 'text-gray-700 bg-gray-100'}`}
+                >
+                  ID
+                </button>
+              </div>
               <Link
                 href="/login"
                 className="block px-3 py-2 rounded-md text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700"
               >
-                Login
+                {copy[language].nav.login}
               </Link>
             </div>
           </div>
@@ -130,11 +244,11 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
           <div className="text-center">
             <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-              <span className="block">Modern Cafe Management</span>
-              <span className="block text-indigo-600">Made Simple</span>
+              <span className="block">{copy[language].hero.title1}</span>
+              <span className="block text-indigo-600">{copy[language].hero.title2}</span>
             </h1>
             <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-              Complete solution for managing your cafe operations. From QR code ordering to kitchen display systems, analytics, and more.
+              {copy[language].hero.subtitle}
             </p>
             <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
               <div className="rounded-md shadow">
@@ -142,7 +256,7 @@ export default function Home() {
                   href="/login"
                   className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 md:py-4 md:text-lg md:px-10"
                 >
-                  Get Started
+                  {copy[language].hero.cta}
                 </Link>
               </div>
               <div className="mt-3 rounded-md shadow sm:mt-0 sm:ml-3">
@@ -152,7 +266,7 @@ export default function Home() {
                   rel="noopener noreferrer"
                   className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-indigo-600 bg-white hover:bg-gray-50 md:py-4 md:text-lg md:px-10"
                 >
-                  Learn More
+                  {copy[language].hero.learnMore}
                 </a>
               </div>
             </div>
@@ -164,12 +278,12 @@ export default function Home() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-base text-indigo-600 font-semibold tracking-wide uppercase">Features</h2>
+            <h2 className="text-base text-indigo-600 font-semibold tracking-wide uppercase">{copy[language].sections.features}</h2>
             <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-              Everything you need to run your cafe
+              {copy[language].sections.featuresHeadline}
             </p>
             <p className="mt-4 max-w-2xl text-xl text-gray-500 mx-auto">
-              Powerful features designed specifically for the fast-paced cafe environment
+              {copy[language].sections.featuresSub}
             </p>
           </div>
 

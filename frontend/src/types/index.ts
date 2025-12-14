@@ -63,6 +63,7 @@ export interface MenuItem {
   imageUrl?: string;
   isAvailable: boolean;
   stockQty?: number;
+  sizes?: Array<{ label: string; price: number }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -85,6 +86,7 @@ export interface OrderItem {
   unitPrice: number;
   subtotal: number;
   notes?: string;
+  sizeLabel?: string;
 }
 
 export interface Order {
@@ -108,6 +110,8 @@ export interface Order {
   completedAt?: string;
   autoCleared: boolean;
   autoClearedAt?: string;
+  tableCleared?: boolean;
+  tableClearedAt?: string;
   staffId?: string;
   staff?: User;
   orderItems: OrderItem[];

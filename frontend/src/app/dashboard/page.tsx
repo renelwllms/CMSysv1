@@ -75,18 +75,13 @@ export default function DashboardPage() {
     try {
       setStatsLoading(true);
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      const token = localStorage.getItem('token');
 
       const [orderStatsResponse, menuResponse] = await Promise.all([
         fetch(`${apiUrl}/orders/stats`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+          credentials: 'include',
         }),
         fetch(`${apiUrl}/menu`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+          credentials: 'include',
         }),
       ]);
 
@@ -150,7 +145,7 @@ export default function DashboardPage() {
 
   const allDashboardStats = [
     {
-      name: 'Today\'s Orders',
+      name: 'Order Management',
       value: statsLoading ? '...' : stats.todayOrders.toString(),
       change: '',
       changeType: 'neutral',
@@ -206,8 +201,8 @@ export default function DashboardPage() {
 
   const allQuickActions = [
     {
-      name: 'New Order',
-      description: 'Create a new customer order',
+      name: 'Order Management',
+      description: 'Create and manage customer orders',
       href: '/dashboard/orders',
       roles: ['ADMIN', 'STAFF'],
       icon: (
