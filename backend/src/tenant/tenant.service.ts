@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Request } from 'express';
+import { CreateTenantDto } from './dto/create-tenant.dto';
 
 export interface RequestTenant {
   id: string;
@@ -32,6 +33,42 @@ export class TenantService {
     });
 
     return { id: tenant.id, slug: tenant.slug };
+  }
+
+  async listTenants() {
+    return this.prisma.tenant.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createTenant(dto: CreateTenantDto) {
+    const existing = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [
+          { slug: dto.slug },
+          ...(dto.domain ? [{ domain: dto.domain }] : []),
+          ...(dto.customDomain ? [{ customDomain: dto.customDomain }] : []),
+        ],
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException('A tenant with this slug or domain already exists');
+    }
+
+    return this.prisma.tenant.create({
+      data: {
+        name: dto.name,
+        slug: dto.slug,
+        domain: dto.domain,
+        customDomain: dto.customDomain,
+        logoUrl: dto.logoUrl,
+        faviconUrl: dto.faviconUrl,
+        primaryColor: dto.primaryColor,
+        secondaryColor: dto.secondaryColor,
+        isActive: dto.isActive ?? true,
+      },
+    });
   }
 
   private extractSlugFromHost(host?: string | null): string | undefined {

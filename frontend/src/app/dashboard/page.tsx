@@ -263,6 +263,18 @@ export default function DashboardPage() {
       color: 'bg-teal-500',
     },
     {
+      name: 'Tenants',
+      description: 'Manage tenant provisioning',
+      href: '/dashboard/tenants',
+      roles: ['ADMIN'],
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M10 14h10M4 18h10" />
+        </svg>
+      ),
+      color: 'bg-blue-600',
+    },
+    {
       name: 'Settings',
       description: 'Configure business settings',
       href: '/dashboard/settings',
