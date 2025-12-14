@@ -10,7 +10,7 @@ import * as path from 'path';
 export class MenuService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createMenuItemDto: CreateMenuItemDto, imageUrl?: string) {
+  async create(createMenuItemDto: CreateMenuItemDto, tenantId: string, imageUrl?: string) {
     const sizes = createMenuItemDto.sizes ? (createMenuItemDto.sizes as any) : undefined;
     const resolvedPrice =
       createMenuItemDto.price ?? (Array.isArray(sizes) && sizes.length > 0 ? sizes[0].price : undefined);
@@ -31,12 +31,13 @@ export class MenuService {
         isAvailable: createMenuItemDto.isAvailable ?? true,
         imageUrl,
         sizes,
+        tenantId,
       },
     });
   }
 
-  async findAll(category?: MenuCategory, isAvailable?: boolean) {
-    const where: any = { isActive: true };
+  async findAll(tenantId: string, category?: MenuCategory, isAvailable?: boolean) {
+    const where: any = { isActive: true, tenantId };
 
     if (category) {
       where.category = category;
@@ -52,9 +53,9 @@ export class MenuService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, tenantId: string) {
     const menuItem = await this.prisma.menuItem.findUnique({
-      where: { id },
+      where: { id, tenantId },
     });
 
     if (!menuItem) {
@@ -64,8 +65,8 @@ export class MenuService {
     return menuItem;
   }
 
-  async update(id: string, updateMenuItemDto: UpdateMenuItemDto, imageUrl?: string) {
-    const menuItem = await this.findOne(id);
+  async update(id: string, tenantId: string, updateMenuItemDto: UpdateMenuItemDto, imageUrl?: string) {
+    const menuItem = await this.findOne(id, tenantId);
 
     // If new image is uploaded, delete old one
     if (imageUrl && menuItem.imageUrl) {
@@ -85,17 +86,17 @@ export class MenuService {
     if (updateMenuItemDto.sizes !== undefined) updateData.sizes = updateMenuItemDto.sizes as any;
 
     return this.prisma.menuItem.update({
-      where: { id },
+      where: { id, tenantId },
       data: updateData,
     });
   }
 
-  async remove(id: string) {
-    const menuItem = await this.findOne(id);
+  async remove(id: string, tenantId: string) {
+    const menuItem = await this.findOne(id, tenantId);
 
     // Soft delete by setting isActive to false
     const deleted = await this.prisma.menuItem.update({
-      where: { id },
+      where: { id, tenantId },
       data: { isActive: false },
     });
 
@@ -107,13 +108,13 @@ export class MenuService {
     return deleted;
   }
 
-  async updateStock(id: string, stockQty: number) {
+  async updateStock(id: string, tenantId: string, stockQty: number) {
     if (stockQty < 0) {
       throw new BadRequestException('Stock quantity cannot be negative');
     }
 
     return this.prisma.menuItem.update({
-      where: { id },
+      where: { id, tenantId },
       data: {
         stockQty,
         isAvailable: stockQty > 0,
@@ -121,22 +122,23 @@ export class MenuService {
     });
   }
 
-  async findByCategory(category: MenuCategory) {
+  async findByCategory(category: MenuCategory, tenantId: string) {
     return this.prisma.menuItem.findMany({
       where: {
         category,
         isActive: true,
         isAvailable: true,
+        tenantId,
       },
       orderBy: { name: 'asc' },
     });
   }
 
-  async toggleAvailability(id: string) {
-    const menuItem = await this.findOne(id);
+  async toggleAvailability(id: string, tenantId: string) {
+    const menuItem = await this.findOne(id, tenantId);
 
     return this.prisma.menuItem.update({
-      where: { id },
+      where: { id, tenantId },
       data: {
         isAvailable: !menuItem.isAvailable,
       },
@@ -158,10 +160,10 @@ export class MenuService {
     return Object.values(MenuCategory);
   }
 
-  async getCategoryStats() {
+  async getCategoryStats(tenantId: string) {
     const stats = await this.prisma.menuItem.groupBy({
       by: ['category'],
-      where: { isActive: true },
+      where: { isActive: true, tenantId },
       _count: {
         id: true,
       },

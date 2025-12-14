@@ -13,7 +13,7 @@ export class OrdersService {
     private ordersGateway: OrdersGateway,
   ) {}
 
-  async create(createOrderDto: CreateOrderDto) {
+  async create(createOrderDto: CreateOrderDto, tenantId?: string) {
     // Validate menu items and calculate total
     let totalAmount = 0;
     const orderItems: Array<{
@@ -26,8 +26,8 @@ export class OrdersService {
     let isCakeOrder = false;
 
     for (const item of createOrderDto.items) {
-      const menuItem = await this.prisma.menuItem.findUnique({
-        where: { id: item.menuItemId },
+      const menuItem = await this.prisma.menuItem.findFirst({
+        where: { id: item.menuItemId, ...(tenantId ? { tenantId } : {}) },
       });
 
       if (!menuItem) {
@@ -87,6 +87,7 @@ export class OrdersService {
     const order = await this.prisma.order.create({
       data: {
         orderNumber,
+        tenantId,
         customerName: createOrderDto.customerName,
         customerPhone: createOrderDto.customerPhone,
         language: createOrderDto.language,
@@ -118,8 +119,8 @@ export class OrdersService {
 
     // Update stock for cabinet food
     for (const item of createOrderDto.items) {
-      const menuItem = await this.prisma.menuItem.findUnique({
-        where: { id: item.menuItemId },
+      const menuItem = await this.prisma.menuItem.findFirst({
+        where: { id: item.menuItemId, ...(tenantId ? { tenantId } : {}) },
       });
 
       if (menuItem?.category === MenuCategory.CABINET_FOOD && menuItem.stockQty) {
@@ -139,12 +140,13 @@ export class OrdersService {
     return order;
   }
 
-  async lookupStatus(orderNumber: string, phone: string) {
+  async lookupStatus(orderNumber: string, phone: string, tenantId?: string) {
     const order = await this.prisma.order.findFirst({
       where: {
         orderNumber,
         customerPhone: phone,
         tableCleared: false,
+        ...(tenantId ? { tenantId } : {}),
       },
       include: {
         orderItems: {
@@ -166,7 +168,7 @@ export class OrdersService {
     return order;
   }
 
-  async clearTable(orderNumber: string, phone: string) {
+  async clearTable(orderNumber: string, phone: string, tenantId?: string) {
     const order = await this.prisma.order.findFirst({
       where: {
         orderNumber,
@@ -175,6 +177,7 @@ export class OrdersService {
           in: [OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.REJECTED],
         },
         tableCleared: false,
+        ...(tenantId ? { tenantId } : {}),
       },
       orderBy: {
         createdAt: 'desc',
@@ -203,8 +206,8 @@ export class OrdersService {
     });
   }
 
-  async findAll(status?: OrderStatus, paymentStatus?: PaymentStatus) {
-    const where: any = {};
+  async findAll(status?: OrderStatus, paymentStatus?: PaymentStatus, tenantId?: string) {
+    const where: any = tenantId ? { tenantId } : {};
 
     if (status) {
       where.status = status;
@@ -235,9 +238,9 @@ export class OrdersService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, tenantId?: string) {
     const order = await this.prisma.order.findUnique({
-      where: { id },
+      where: { id, ...(tenantId ? { tenantId } : {}) },
       include: {
         orderItems: {
           include: {
@@ -263,9 +266,9 @@ export class OrdersService {
     return order;
   }
 
-  async findByOrderNumber(orderNumber: string) {
+  async findByOrderNumber(orderNumber: string, tenantId?: string) {
     const order = await this.prisma.order.findUnique({
-      where: { orderNumber },
+      where: { orderNumber, ...(tenantId ? { tenantId } : {}) },
       include: {
         orderItems: {
           include: {
@@ -283,8 +286,8 @@ export class OrdersService {
     return order;
   }
 
-  async update(id: string, updateOrderDto: UpdateOrderDto) {
-    const order = await this.findOne(id);
+  async update(id: string, updateOrderDto: UpdateOrderDto, tenantId?: string) {
+    const order = await this.findOne(id, tenantId);
 
     // Check if order can be edited (only before cooking starts)
     const editableStatuses: OrderStatus[] = [
@@ -411,8 +414,8 @@ export class OrdersService {
     return updatedOrder;
   }
 
-  async updateStatus(id: string, updateOrderStatusDto: UpdateOrderStatusDto, staffId?: string) {
-    const order = await this.findOne(id);
+  async updateStatus(id: string, updateOrderStatusDto: UpdateOrderStatusDto, staffId?: string, tenantId?: string) {
+    const order = await this.findOne(id, tenantId);
     const now = new Date();
     const createdAt = new Date(order.createdAt);
 
@@ -444,7 +447,7 @@ export class OrdersService {
     }
 
     const updatedOrder = await this.prisma.order.update({
-      where: { id },
+      where: { id, ...(tenantId ? { tenantId } : {}) },
       data: updateData,
       include: {
         orderItems: {
@@ -462,15 +465,15 @@ export class OrdersService {
     return updatedOrder;
   }
 
-  async markAsPaid(id: string, staffId: string) {
-    const order = await this.findOne(id);
+  async markAsPaid(id: string, staffId: string, tenantId?: string) {
+    const order = await this.findOne(id, tenantId);
 
     if (order.paymentStatus === PaymentStatus.PAID) {
       throw new BadRequestException('Order is already paid');
     }
 
     const updatedOrder = await this.prisma.order.update({
-      where: { id },
+      where: { id, ...(tenantId ? { tenantId } : {}) },
       data: {
         paymentStatus: PaymentStatus.PAID,
         paidAt: new Date(),
@@ -493,9 +496,11 @@ export class OrdersService {
     return updatedOrder;
   }
 
-  async getKitchenOrders() {
+  async getKitchenOrders(tenantId?: string) {
     // Get settings to check order approval mode
-    const settings = await this.prisma.settings.findFirst();
+    const settings = await this.prisma.settings.findFirst({
+      where: tenantId ? { tenantId } : {},
+    });
     const requiresApproval = settings?.orderApprovalMode === 'REQUIRES_APPROVAL';
 
     // Define which statuses should be shown in kitchen
@@ -510,6 +515,7 @@ export class OrdersService {
     // Show orders in kitchen based on status
     return this.prisma.order.findMany({
       where: {
+        ...(tenantId ? { tenantId } : {}),
         status: {
           in: kitchenStatuses,
         },
@@ -526,9 +532,9 @@ export class OrdersService {
     });
   }
 
-  async getOrdersByCustomerPhone(phone: string) {
+  async getOrdersByCustomerPhone(phone: string, tenantId?: string) {
     return this.prisma.order.findMany({
-      where: { customerPhone: phone },
+      where: { customerPhone: phone, ...(tenantId ? { tenantId } : {}) },
       include: {
         orderItems: {
           include: {
@@ -541,8 +547,8 @@ export class OrdersService {
     });
   }
 
-  async cancelOrder(id: string) {
-    const order = await this.findOne(id);
+  async cancelOrder(id: string, tenantId?: string) {
+    const order = await this.findOne(id, tenantId);
 
     if (order.status === OrderStatus.COMPLETED) {
       throw new BadRequestException('Cannot cancel completed order');
@@ -553,22 +559,22 @@ export class OrdersService {
     }
 
     return this.prisma.order.update({
-      where: { id },
+      where: { id, ...(tenantId ? { tenantId } : {}) },
       data: {
         status: OrderStatus.CANCELLED,
       },
     });
   }
 
-  async approveOrder(id: string, staffId?: string) {
-    const order = await this.findOne(id);
+  async approveOrder(id: string, staffId?: string, tenantId?: string) {
+    const order = await this.findOne(id, tenantId);
 
     if (order.status !== OrderStatus.PENDING_APPROVAL) {
       throw new BadRequestException('Only pending approval orders can be approved');
     }
 
     const updatedOrder = await this.prisma.order.update({
-      where: { id },
+      where: { id, ...(tenantId ? { tenantId } : {}) },
       data: {
         status: OrderStatus.WAITING, // Move to kitchen queue
         ...(staffId && { staffId }),
@@ -589,15 +595,15 @@ export class OrdersService {
     return updatedOrder;
   }
 
-  async rejectOrder(id: string, staffId?: string) {
-    const order = await this.findOne(id);
+  async rejectOrder(id: string, staffId?: string, tenantId?: string) {
+    const order = await this.findOne(id, tenantId);
 
     if (order.status !== OrderStatus.PENDING_APPROVAL) {
       throw new BadRequestException('Only pending approval orders can be rejected');
     }
 
     const updatedOrder = await this.prisma.order.update({
-      where: { id },
+      where: { id, ...(tenantId ? { tenantId } : {}) },
       data: {
         status: OrderStatus.REJECTED,
         ...(staffId && { staffId }),
@@ -618,13 +624,14 @@ export class OrdersService {
     return updatedOrder;
   }
 
-  async getOrderStats() {
+  async getOrderStats(tenantId?: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const todayOrders = await this.prisma.order.count({
       where: {
         createdAt: { gte: today },
+        ...(tenantId ? { tenantId } : {}),
       },
     });
 
@@ -632,6 +639,7 @@ export class OrdersService {
       where: {
         createdAt: { gte: today },
         paymentStatus: PaymentStatus.PAID,
+        ...(tenantId ? { tenantId } : {}),
       },
       _sum: {
         totalAmount: true,
@@ -641,6 +649,7 @@ export class OrdersService {
     const pendingPaymentOrders = await this.prisma.order.count({
       where: {
         paymentStatus: PaymentStatus.PENDING,
+        ...(tenantId ? { tenantId } : {}),
       },
     });
 
@@ -649,6 +658,7 @@ export class OrdersService {
         status: {
           in: [OrderStatus.WAITING, OrderStatus.COOKING],
         },
+        ...(tenantId ? { tenantId } : {}),
       },
     });
 
@@ -660,7 +670,7 @@ export class OrdersService {
     };
   }
 
-  async getAllCustomers() {
+  async getAllCustomers(tenantId?: string) {
     // Get unique customers from orders
     const orders = await this.prisma.order.findMany({
       select: {
@@ -668,6 +678,7 @@ export class OrdersService {
         customerPhone: true,
         createdAt: true,
       },
+      where: tenantId ? { tenantId } : undefined,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -704,6 +715,7 @@ export class OrdersService {
           where: {
             customerPhone: customer.phone,
             paymentStatus: PaymentStatus.PAID,
+            ...(tenantId ? { tenantId } : {}),
           },
           _sum: {
             totalAmount: true,
@@ -722,9 +734,9 @@ export class OrdersService {
     );
   }
 
-  async deleteCustomerByPhone(phone: string) {
+  async deleteCustomerByPhone(phone: string, tenantId?: string) {
     const existing = await this.prisma.order.count({
-      where: { customerPhone: phone },
+      where: { customerPhone: phone, ...(tenantId ? { tenantId } : {}) },
     });
 
     if (existing === 0) {
@@ -732,14 +744,14 @@ export class OrdersService {
     }
 
     const deletedOrders = await this.prisma.order.deleteMany({
-      where: { customerPhone: phone },
+      where: { customerPhone: phone, ...(tenantId ? { tenantId } : {}) },
     });
 
     return { deletedOrders: deletedOrders.count };
   }
 
-  async exportCustomersCsv() {
-    const customers = await this.getAllCustomers();
+  async exportCustomersCsv(tenantId?: string) {
+    const customers = await this.getAllCustomers(tenantId);
 
     const header = ['Name', 'Phone', 'First Order', 'Last Order', 'Total Orders', 'Total Spent'];
     const rows = customers.map((c) => [
@@ -845,7 +857,7 @@ export class OrdersService {
   }
 
   // Get kitchen statistics
-  async getKitchenStats() {
+  async getKitchenStats(tenantId?: string) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -857,6 +869,7 @@ export class OrdersService {
       where: {
         status: OrderStatus.COMPLETED,
         completedAt: { gte: today },
+        ...(tenantId ? { tenantId } : {}),
       },
     });
 
@@ -865,6 +878,7 @@ export class OrdersService {
       where: {
         status: OrderStatus.COMPLETED,
         completedAt: { gte: thisMonthStart },
+        ...(tenantId ? { tenantId } : {}),
       },
     });
 
@@ -876,6 +890,7 @@ export class OrdersService {
           gte: lastMonthStart,
           lte: lastMonthEnd,
         },
+        ...(tenantId ? { tenantId } : {}),
       },
     });
 
@@ -884,6 +899,7 @@ export class OrdersService {
       where: {
         status: OrderStatus.COMPLETED,
         cookingDuration: { not: null },
+        ...(tenantId ? { tenantId } : {}),
       },
       _avg: {
         cookingDuration: true,
@@ -895,6 +911,7 @@ export class OrdersService {
       where: {
         status: OrderStatus.COMPLETED,
         preparationDuration: { not: null },
+        ...(tenantId ? { tenantId } : {}),
       },
       _avg: {
         preparationDuration: true,
@@ -911,7 +928,7 @@ export class OrdersService {
   }
 
   // Get analytics data
-  async getAnalytics() {
+  async getAnalytics(tenantId?: string) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -921,6 +938,7 @@ export class OrdersService {
       where: {
         status: OrderStatus.COMPLETED,
         paymentStatus: PaymentStatus.PAID,
+        ...(tenantId ? { tenantId } : {}),
       },
       include: {
         table: true,

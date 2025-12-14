@@ -6,9 +6,11 @@ import { UpdateSettingsDto } from './dto/update-settings.dto';
 export class SettingsService {
   constructor(private prisma: PrismaService) {}
 
-  async getSettings() {
-    // Get the first (and should be only) settings record
-    let settings = await this.prisma.settings.findFirst();
+  async getSettings(tenantId?: string) {
+    // Get the first (and should be only) settings record for this tenant
+    let settings = await this.prisma.settings.findFirst({
+      where: tenantId ? { tenantId } : undefined,
+    });
 
     // If no settings exist, create default settings
     if (!settings) {
@@ -16,6 +18,7 @@ export class SettingsService {
         data: {
           businessName: 'My Cafe',
           businessNameId: 'Kafe Saya',
+          tenantId,
         },
       });
     }
@@ -23,9 +26,9 @@ export class SettingsService {
     return settings;
   }
 
-  async updateSettings(updateSettingsDto: UpdateSettingsDto) {
+  async updateSettings(updateSettingsDto: UpdateSettingsDto, tenantId?: string) {
     // Get existing settings or create if doesn't exist
-    const existing = await this.getSettings();
+    const existing = await this.getSettings(tenantId);
 
     // Update settings
     return this.prisma.settings.update({
@@ -34,16 +37,16 @@ export class SettingsService {
     });
   }
 
-  async updateLogo(logoUrl: string) {
-    const existing = await this.getSettings();
+  async updateLogo(logoUrl: string, tenantId?: string) {
+    const existing = await this.getSettings(tenantId);
     return this.prisma.settings.update({
       where: { id: existing.id },
       data: { logoUrl },
     });
   }
 
-  async updateOgImage(ogImageUrl: string) {
-    const existing = await this.getSettings();
+  async updateOgImage(ogImageUrl: string, tenantId?: string) {
+    const existing = await this.getSettings(tenantId);
     return this.prisma.settings.update({
       where: { id: existing.id },
       data: { ogImageUrl },

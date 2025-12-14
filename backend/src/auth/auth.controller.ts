@@ -16,8 +16,9 @@ export class AuthController {
 
   @Post('login')
   @Throttle({ default: { limit: 30, ttl: 60 } })
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const { accessToken, refreshToken, user } = await this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Req() req: any, @Res({ passthrough: true }) res: Response) {
+    const tenant = req.tenant;
+    const { accessToken, refreshToken, user } = await this.authService.login(loginDto, tenant?.id);
     this.setAuthCookies(res, accessToken, refreshToken);
     return { user };
   }
@@ -43,8 +44,9 @@ export class AuthController {
   @Post('register')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+  async register(@Body() registerDto: RegisterDto, @Req() req: any) {
+    const tenant = req.tenant;
+    return this.authService.register(registerDto, tenant?.id);
   }
 
   @Get('profile')

@@ -14,10 +14,13 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async register(registerDto: RegisterDto) {
+  async register(registerDto: RegisterDto, tenantId?: string) {
     // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: registerDto.email },
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        email: registerDto.email,
+        ...(tenantId ? { tenantId } : {}),
+      },
     });
 
     if (existingUser) {
@@ -34,6 +37,7 @@ export class AuthService {
         password: hashedPassword,
         fullName: registerDto.fullName,
         role: registerDto.role,
+        ...(tenantId ? { tenantId } : {}),
       },
       select: {
         id: true,
@@ -42,6 +46,7 @@ export class AuthService {
         role: true,
         isActive: true,
         createdAt: true,
+        tenantId: true,
       },
     });
 
@@ -51,10 +56,13 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto, tenantId?: string) {
     // Find user
-    const user = await this.prisma.user.findUnique({
-      where: { email: loginDto.email },
+    const user = await this.prisma.user.findFirst({
+      where: {
+        email: loginDto.email,
+        ...(tenantId ? { tenantId } : {}),
+      },
     });
 
     if (!user) {
@@ -74,7 +82,7 @@ export class AuthService {
     }
 
     // Generate JWT token
-    const tokens = this.generateTokens(user.id, user.email, user.role);
+    const tokens = this.generateTokens(user.id, user.email, user.role, user.tenantId);
 
     return {
       ...tokens,
@@ -83,6 +91,7 @@ export class AuthService {
         email: user.email,
         fullName: user.fullName,
         role: user.role,
+        tenantId: user.tenantId,
       },
     };
   }
@@ -100,7 +109,7 @@ export class AuthService {
         throw new UnauthorizedException('User not found or inactive');
       }
 
-      const tokens = this.generateTokens(user.id, user.email, user.role);
+      const tokens = this.generateTokens(user.id, user.email, user.role, user.tenantId);
 
       return {
         ...tokens,
@@ -109,6 +118,7 @@ export class AuthService {
           email: user.email,
           fullName: user.fullName,
           role: user.role,
+          tenantId: user.tenantId,
         },
       };
     } catch (error) {
@@ -125,6 +135,7 @@ export class AuthService {
         fullName: true,
         role: true,
         isActive: true,
+        tenantId: true,
       },
     });
   }
@@ -140,6 +151,7 @@ export class AuthService {
         isActive: true,
         createdAt: true,
         updatedAt: true,
+        tenantId: true,
       },
     });
 
@@ -150,8 +162,8 @@ export class AuthService {
     return user;
   }
 
-  private generateTokens(userId: string, email: string, role: string) {
-    const payload = { sub: userId, email, role };
+  private generateTokens(userId: string, email: string, role: string, tenantId?: string | null) {
+    const payload = { sub: userId, email, role, tenantId };
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET'),
       expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m',

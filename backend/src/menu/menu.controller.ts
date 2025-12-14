@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -42,19 +43,23 @@ export class MenuController {
   )
   async create(
     @Body() createMenuItemDto: CreateMenuItemDto,
+    @Req() req: any,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     const imageUrl = file ? `/uploads/menu-items/${file.filename}` : undefined;
-    return this.menuService.create(createMenuItemDto, imageUrl);
+    const tenantId = req?.tenant?.id;
+    return this.menuService.create(createMenuItemDto, tenantId, imageUrl);
   }
 
   @Get()
   findAll(
     @Query('category') category?: MenuCategory,
     @Query('isAvailable') isAvailable?: string,
+    @Req() req?: any,
   ) {
     const available = isAvailable === 'true' ? true : isAvailable === 'false' ? false : undefined;
-    return this.menuService.findAll(category, available);
+    const tenantId = req?.tenant?.id;
+    return this.menuService.findAll(tenantId, category, available);
   }
 
   @Get('categories')
@@ -65,18 +70,18 @@ export class MenuController {
   @Get('stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  getCategoryStats() {
-    return this.menuService.getCategoryStats();
+  getCategoryStats(@Req() req: any) {
+    return this.menuService.getCategoryStats(req?.tenant?.id);
   }
 
   @Get('category/:category')
-  findByCategory(@Param('category') category: MenuCategory) {
-    return this.menuService.findByCategory(category);
+  findByCategory(@Param('category') category: MenuCategory, @Req() req: any) {
+    return this.menuService.findByCategory(category, req?.tenant?.id);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.menuService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req: any) {
+    return this.menuService.findOne(id, req?.tenant?.id);
   }
 
   @Patch(':id')
@@ -95,33 +100,34 @@ export class MenuController {
   async update(
     @Param('id') id: string,
     @Body() updateMenuItemDto: UpdateMenuItemDto,
+    @Req() req: any,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     const imageUrl = file ? `/uploads/menu-items/${file.filename}` : undefined;
-    return this.menuService.update(id, updateMenuItemDto, imageUrl);
+    return this.menuService.update(id, req?.tenant?.id, updateMenuItemDto, imageUrl);
   }
 
   @Patch(':id/stock')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  updateStock(@Param('id') id: string, @Body('stockQty') stockQty: number) {
+  updateStock(@Param('id') id: string, @Body('stockQty') stockQty: number, @Req() req: any) {
     if (typeof stockQty !== 'number') {
       throw new BadRequestException('Stock quantity must be a number');
     }
-    return this.menuService.updateStock(id, stockQty);
+    return this.menuService.updateStock(id, req?.tenant?.id, stockQty);
   }
 
   @Patch(':id/toggle-availability')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  toggleAvailability(@Param('id') id: string) {
-    return this.menuService.toggleAvailability(id);
+  toggleAvailability(@Param('id') id: string, @Req() req: any) {
+    return this.menuService.toggleAvailability(id, req?.tenant?.id);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  remove(@Param('id') id: string) {
-    return this.menuService.remove(id);
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.menuService.remove(id, req?.tenant?.id);
   }
 }

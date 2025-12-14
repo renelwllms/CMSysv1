@@ -21,7 +21,10 @@ async function bootstrap() {
       // Allow requests with no origin (like mobile apps, curl, Postman)
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
+      const baseDomain = process.env.TENANT_BASE_DOMAIN;
+      const isTenantSubdomain = baseDomain && origin.endsWith(baseDomain);
+
+      if (allowedOrigins.includes(origin) || isTenantSubdomain) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));

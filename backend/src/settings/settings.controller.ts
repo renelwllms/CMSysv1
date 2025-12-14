@@ -7,6 +7,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -23,15 +24,15 @@ export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
   @Get()
-  getSettings() {
-    return this.settingsService.getSettings();
+  getSettings(@Req() req: any) {
+    return this.settingsService.getSettings(req?.tenant?.id);
   }
 
   @Put()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  updateSettings(@Body() updateSettingsDto: UpdateSettingsDto) {
-    return this.settingsService.updateSettings(updateSettingsDto);
+  updateSettings(@Body() updateSettingsDto: UpdateSettingsDto, @Req() req: any) {
+    return this.settingsService.updateSettings(updateSettingsDto, req?.tenant?.id);
   }
 
   @Post('upload-logo')
@@ -47,9 +48,9 @@ export class SettingsController {
       limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     }),
   )
-  async uploadLogo(@UploadedFile() file: Express.Multer.File) {
+  async uploadLogo(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
     const logoUrl = `/uploads/settings/${file.filename}`;
-    return this.settingsService.updateLogo(logoUrl);
+    return this.settingsService.updateLogo(logoUrl, req?.tenant?.id);
   }
 
   @Post('upload-og-image')
@@ -65,8 +66,8 @@ export class SettingsController {
       limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     }),
   )
-  async uploadOgImage(@UploadedFile() file: Express.Multer.File) {
+  async uploadOgImage(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
     const ogImageUrl = `/uploads/settings/${file.filename}`;
-    return this.settingsService.updateOgImage(ogImageUrl);
+    return this.settingsService.updateOgImage(ogImageUrl, req?.tenant?.id);
   }
 }
