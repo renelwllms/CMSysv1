@@ -18,10 +18,10 @@ export class TablesService {
     this.frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
   }
 
-  async create(createTableDto: CreateTableDto, tenantId?: string) {
+  async create(createTableDto: CreateTableDto, req?: any) {
     // Check if table number already exists
     const existing = await this.prisma.table.findFirst({
-      where: { tableNumber: createTableDto.tableNumber, ...(tenantId ? { tenantId } : {}) },
+      where: { tableNumber: createTableDto.tableNumber },
     });
 
     if (existing) {
@@ -30,18 +30,17 @@ export class TablesService {
 
     // Create table
     const table = await this.prisma.table.create({
-      data: { ...createTableDto, tenantId },
+      data: { ...createTableDto },
     });
 
     // Generate QR code
-    await this.generateQRCode(table.id, table.tableNumber);
+    await this.generateQRCode(table.id, table.tableNumber, req);
 
     return this.findOne(table.id);
   }
 
-  async findAll(tenantId?: string) {
+  async findAll() {
     return this.prisma.table.findMany({
-      where: tenantId ? { tenantId } : undefined,
       orderBy: { tableNumber: 'asc' },
       include: {
         _count: {
@@ -51,9 +50,9 @@ export class TablesService {
     });
   }
 
-  async findOne(id: string, tenantId?: string) {
+  async findOne(id: string) {
     const table = await this.prisma.table.findUnique({
-      where: { id, ...(tenantId ? { tenantId } : {}) },
+      where: { id },
       include: {
         _count: {
           select: { orders: true },
@@ -68,27 +67,27 @@ export class TablesService {
     return table;
   }
 
-  async update(id: string, updateTableDto: UpdateTableDto, tenantId?: string) {
-    await this.findOne(id, tenantId);
+  async update(id: string, updateTableDto: UpdateTableDto, req?: any) {
+    await this.findOne(id);
 
     const updated = await this.prisma.table.update({
-      where: { id, ...(tenantId ? { tenantId } : {}) },
+      where: { id },
       data: updateTableDto,
     });
 
     // Regenerate QR code if table number changed
     if (updateTableDto.tableNumber) {
-      await this.generateQRCode(updated.id, updated.tableNumber);
+      await this.generateQRCode(updated.id, updated.tableNumber, req);
     }
 
     return this.findOne(id);
   }
 
-  async remove(id: string, tenantId?: string) {
-    await this.findOne(id, tenantId);
+  async remove(id: string) {
+    await this.findOne(id);
 
     // Delete QR code file
-    const table = await this.prisma.table.findUnique({ where: { id, ...(tenantId ? { tenantId } : {}) } });
+    const table = await this.prisma.table.findUnique({ where: { id } });
     if (table?.qrCode) {
       this.deleteQRCodeFile(table.qrCode);
     }
@@ -96,8 +95,9 @@ export class TablesService {
     return this.prisma.table.delete({ where: { id } });
   }
 
-  async generateQRCode(tableId: string, tableNumber: string) {
-    const orderUrl = `${this.frontendUrl}/order?table=${tableId}`;
+  async generateQRCode(tableId: string, tableNumber: string, req?: any) {
+    const frontendUrl = this.resolveFrontendUrl(req);
+    const orderUrl = `${frontendUrl}/order?table=${tableId}`;
     const qrCodeFileName = `table-${tableNumber}-${Date.now()}.png`;
     const qrCodePath = path.join(process.cwd(), 'uploads', 'qr-codes', qrCodeFileName);
 
@@ -133,8 +133,8 @@ export class TablesService {
     }
   }
 
-  async regenerateQRCode(id: string, tenantId?: string) {
-    const table = await this.findOne(id, tenantId);
+  async regenerateQRCode(id: string, req?: any) {
+    const table = await this.findOne(id);
 
     // Delete old QR code
     if (table.qrCode) {
@@ -142,13 +142,13 @@ export class TablesService {
     }
 
     // Generate new QR code
-    await this.generateQRCode(table.id, table.tableNumber);
+    await this.generateQRCode(table.id, table.tableNumber, req);
 
     return this.findOne(id);
   }
 
-  async getQRCodeData(id: string, tenantId?: string) {
-    const table = await this.findOne(id, tenantId);
+  async getQRCodeData(id: string) {
+    const table = await this.findOne(id);
 
     if (!table.qrCode) {
       throw new NotFoundException('QR code not found for this table');
@@ -160,18 +160,19 @@ export class TablesService {
       throw new NotFoundException('QR code file not found');
     }
 
+    const frontendUrl = this.resolveFrontendUrl();
     return {
       tableNumber: table.tableNumber,
       qrCodeUrl: table.qrCode,
-      orderUrl: `${this.frontendUrl}/order?table=${table.id}`,
+      orderUrl: `${frontendUrl}/order?table=${table.id}`,
     };
   }
 
-  async toggleActive(id: string, tenantId?: string) {
-    const table = await this.findOne(id, tenantId);
+  async toggleActive(id: string) {
+    const table = await this.findOne(id);
 
     return this.prisma.table.update({
-      where: { id, ...(tenantId ? { tenantId } : {}) },
+      where: { id },
       data: { isActive: !table.isActive },
     });
   }
@@ -185,5 +186,26 @@ export class TablesService {
     } catch (error) {
       console.error('Error deleting QR code file:', error);
     }
+  }
+
+  private resolveFrontendUrl(req?: any) {
+    const origin = req?.headers?.origin;
+    if (origin) {
+      return origin.replace(/\/$/, '');
+    }
+
+    const forwardedHost = req?.headers?.['x-forwarded-host'] || req?.headers?.host;
+    const forwardedProto = req?.headers?.['x-forwarded-proto'] || req?.protocol;
+    if (forwardedHost) {
+      const proto = typeof forwardedProto === 'string'
+        ? forwardedProto.split(',')[0].trim()
+        : 'http';
+      const host = typeof forwardedHost === 'string'
+        ? forwardedHost.split(',')[0].trim()
+        : forwardedHost;
+      return `${proto || 'http'}://${host}`;
+    }
+
+    return this.frontendUrl;
   }
 }

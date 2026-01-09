@@ -1,9 +1,14 @@
+const MULTI_TENANT_ENABLED = false;
 let cachedTenant: string | null = null;
 
 const DEFAULT_TENANT = process.env.NEXT_PUBLIC_DEFAULT_TENANT || 'default';
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_TENANT_BASE_DOMAIN;
 
 export function getTenantSlug(): string {
+  if (!MULTI_TENANT_ENABLED) {
+    return '';
+  }
+
   if (cachedTenant) return cachedTenant;
 
   if (typeof window !== 'undefined') {
@@ -29,6 +34,10 @@ export function getTenantSlug(): string {
 }
 
 export function tenantHeaders(): Record<string, string> {
+  if (!MULTI_TENANT_ENABLED) {
+    return {};
+  }
+
   const slug = getTenantSlug();
   return slug ? { 'x-tenant-id': slug } : {};
 }

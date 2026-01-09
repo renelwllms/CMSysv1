@@ -27,24 +27,24 @@ export class TablesController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
   create(@Body() createTableDto: CreateTableDto, @Req() req: any) {
-    return this.tablesService.create(createTableDto, req?.tenant?.id);
+    return this.tablesService.create(createTableDto, req);
   }
 
   @Get()
-  findAll(@Req() req: any) {
-    return this.tablesService.findAll(req?.tenant?.id);
+  findAll() {
+    return this.tablesService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @Req() req: any) {
-    return this.tablesService.findOne(id, req?.tenant?.id);
+  findOne(@Param('id') id: string) {
+    return this.tablesService.findOne(id);
   }
 
   @Get(':id/qr-code')
-  async getQRCodeData(@Param('id') id: string, @Res() res: Response, @Req() req: any) {
-    const table = await this.tablesService.findOne(id, req?.tenant?.id);
+  async getQRCodeData(@Param('id') id: string, @Res() res: Response) {
+    const table = await this.tablesService.findOne(id);
 
     if (!table.qrCode) {
       return res.status(404).json({ message: 'QR code not found' });
@@ -62,8 +62,8 @@ export class TablesController {
   }
 
   @Get(':id/qr-code/download')
-  async downloadQRCode(@Param('id') id: string, @Res() res: Response, @Req() req: any) {
-    const table = await this.tablesService.findOne(id, req?.tenant?.id);
+  async downloadQRCode(@Param('id') id: string, @Res() res: Response) {
+    const table = await this.tablesService.findOne(id);
 
     if (!table.qrCode) {
       return res.status(404).json({ message: 'QR code not found' });
@@ -80,29 +80,29 @@ export class TablesController {
 
   @Post(':id/regenerate-qr')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
   regenerateQRCode(@Param('id') id: string, @Req() req: any) {
-    return this.tablesService.regenerateQRCode(id, req?.tenant?.id);
+    return this.tablesService.regenerateQRCode(id, req);
   }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
   update(@Param('id') id: string, @Body() updateTableDto: UpdateTableDto, @Req() req: any) {
-    return this.tablesService.update(id, updateTableDto, req?.tenant?.id);
+    return this.tablesService.update(id, updateTableDto, req);
   }
 
   @Patch(':id/toggle-active')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
-  toggleActive(@Param('id') id: string, @Req() req: any) {
-    return this.tablesService.toggleActive(id, req?.tenant?.id);
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
+  toggleActive(@Param('id') id: string) {
+    return this.tablesService.toggleActive(id);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  remove(@Param('id') id: string, @Req() req: any) {
-    return this.tablesService.remove(id, req?.tenant?.id);
+  remove(@Param('id') id: string) {
+    return this.tablesService.remove(id);
   }
 }

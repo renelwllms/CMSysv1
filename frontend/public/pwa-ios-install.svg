@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="520" viewBox="0 0 800 520">
+  <rect width="800" height="520" fill="#f8fafc"/>
+  <rect x="130" y="30" width="540" height="460" rx="42" fill="#ffffff" stroke="#d1d5db" stroke-width="4"/>
+  <rect x="170" y="90" width="460" height="320" rx="26" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="2"/>
+  <rect x="190" y="240" width="420" height="150" rx="20" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+  <rect x="210" y="260" width="380" height="34" rx="10" fill="#e2e8f0"/>
+  <text x="230" y="283" font-family="Arial, sans-serif" font-size="16" fill="#1f2937">Share</text>
+  <rect x="210" y="305" width="380" height="34" rx="10" fill="#fde68a" stroke="#f59e0b" stroke-width="1"/>
+  <text x="230" y="328" font-family="Arial, sans-serif" font-size="16" fill="#7c2d12">Add to Home Screen</text>
+  <rect x="210" y="350" width="380" height="34" rx="10" fill="#e2e8f0"/>
+  <text x="230" y="373" font-family="Arial, sans-serif" font-size="16" fill="#1f2937">Edit Home Screen</text>
+  <circle cx="400" cy="445" r="18" fill="#e2e8f0"/>
+  <rect x="380" y="60" width="40" height="6" rx="3" fill="#cbd5f5"/>
+  <rect x="360" y="140" width="80" height="80" rx="18" fill="#e0e7ff" stroke="#c7d2fe" stroke-width="2"/>
+  <path d="M400 160 L400 200" stroke="#4f46e5" stroke-width="6" stroke-linecap="round"/>
+  <path d="M385 175 L400 160 L415 175" stroke="#4f46e5" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="382" y="200" width="36" height="18" rx="6" fill="#4f46e5"/>
+  <text x="400" y="228" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#4b5563">Tap Share, then Add to Home Screen</text>
+</svg>

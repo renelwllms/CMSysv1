@@ -21,6 +21,7 @@ export default function MenuManagementPage() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [currency, setCurrency] = useState<string>('IDR');
+  const [categories, setCategories] = useState<Array<{ value: string; label: string; color: string }>>([]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -31,6 +32,7 @@ export default function MenuManagementPage() {
   useEffect(() => {
     loadSettings();
     loadMenuItems();
+    loadCategories();
   }, []);
 
   const loadSettings = async () => {
@@ -59,6 +61,52 @@ export default function MenuManagementPage() {
       console.error('Failed to load menu items:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const formatCategoryLabel = (value: string) =>
+    value
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const loadCategories = async () => {
+    try {
+      const data = await menuService.getCategories();
+      const defaults = Object.values(MenuCategory) as string[];
+      const merged = new Set<string>([...defaults, ...data]);
+      const ordered = [
+        ...defaults.filter((category) => merged.has(category)),
+        ...Array.from(merged).filter((category) => !defaults.includes(category)).sort(),
+      ];
+      const palette = [
+        'bg-blue-500',
+        'bg-orange-500',
+        'bg-yellow-500',
+        'bg-purple-500',
+        'bg-pink-500',
+        'bg-green-500',
+        'bg-teal-500',
+        'bg-cyan-500',
+        'bg-rose-500',
+      ];
+      const options = ordered.map((value, index) => ({
+        value,
+        label: formatCategoryLabel(value),
+        color: palette[index % palette.length],
+      }));
+      setCategories([{ value: 'ALL', label: 'All Items', color: 'bg-gray-500' }, ...options]);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+      const defaults = Object.values(MenuCategory) as string[];
+      setCategories([
+        { value: 'ALL', label: 'All Items', color: 'bg-gray-500' },
+        ...defaults.map((value, index) => ({
+          value,
+          label: formatCategoryLabel(value),
+          color: ['bg-blue-500', 'bg-orange-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-green-500'][index % 6],
+        })),
+      ]);
     }
   };
 
@@ -92,21 +140,12 @@ export default function MenuManagementPage() {
     try {
       await menuService.delete(id);
       await loadMenuItems();
+      await loadCategories();
       setDeleteConfirm(null);
     } catch (error) {
       console.error('Failed to delete item:', error);
     }
   };
-
-  const categories = [
-    { value: 'ALL', label: 'All Items', color: 'bg-gray-500' },
-    { value: MenuCategory.DRINKS, label: 'Drinks', color: 'bg-blue-500' },
-    { value: MenuCategory.MAIN_FOODS, label: 'Main Foods', color: 'bg-orange-500' },
-    { value: MenuCategory.SNACKS, label: 'Snacks', color: 'bg-yellow-500' },
-    { value: MenuCategory.CABINET_FOOD, label: 'Cabinet Food', color: 'bg-purple-500' },
-    { value: MenuCategory.CAKES, label: 'Cakes', color: 'bg-pink-500' },
-    { value: MenuCategory.GIFTS, label: 'Gifts', color: 'bg-green-500' },
-  ];
 
   const getCategoryColor = (category: MenuCategory) => {
     const cat = categories.find(c => c.value === category);
@@ -115,7 +154,7 @@ export default function MenuManagementPage() {
 
   const getCategoryLabel = (category: MenuCategory) => {
     const cat = categories.find(c => c.value === category);
-    return cat?.label || category;
+    return cat?.label || formatCategoryLabel(category);
   };
 
   if (isLoading || loading) {
@@ -285,7 +324,7 @@ export default function MenuManagementPage() {
                   )}
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-2xl font-bold text-indigo-600">
-                      {formatCurrency(item.price, currency)}
+                      {formatCurrency(item.price ?? item.sizes?.[0]?.price ?? 0, currency)}
                     </span>
                     {item.stockQty !== null && item.stockQty !== undefined && (
                       <span className="text-sm text-gray-600">
@@ -350,7 +389,10 @@ export default function MenuManagementPage() {
             setShowAddModal(false);
             setEditingItem(null);
           }}
-          onSuccess={loadMenuItems}
+          onSuccess={async () => {
+            await loadMenuItems();
+            await loadCategories();
+          }}
         />
       )}
     </div>

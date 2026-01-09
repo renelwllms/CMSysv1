@@ -2,7 +2,6 @@ import {
   IsString,
   IsNotEmpty,
   IsNumber,
-  IsEnum,
   IsOptional,
   Min,
   IsBoolean,
@@ -10,7 +9,6 @@ import {
   ValidateNested,
   ValidateIf,
 } from 'class-validator';
-import { MenuCategory } from '@prisma/client';
 import { Type, Transform, plainToInstance } from 'class-transformer';
 
 class MenuSizeDto {
@@ -23,6 +21,13 @@ class MenuSizeDto {
   @Min(0)
   price: number;
 }
+
+const normalizeCategory = (value: unknown) => {
+  if (value === null || value === undefined) return value;
+  const raw = String(value).trim();
+  if (!raw) return raw;
+  return raw.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toUpperCase();
+};
 
 export class CreateMenuItemDto {
   @IsString()
@@ -51,9 +56,10 @@ export class CreateMenuItemDto {
   @Min(0)
   price?: number;
 
-  @IsEnum(MenuCategory)
+  @Transform(({ value }) => normalizeCategory(value))
+  @IsString()
   @IsNotEmpty()
-  category: MenuCategory;
+  category: string;
 
   @IsNumber()
   @IsOptional()

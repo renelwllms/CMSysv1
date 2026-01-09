@@ -10,34 +10,31 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Tenants (multi-tenant support)
-model Tenant {
-  id             String   @id @default(uuid())
-  name           String
-  slug           String   @unique
-  domain         String?  @unique
-  customDomain   String?  @unique
-  logoUrl        String?
-  primaryColor   String?  @default("#4F46E5")
-  secondaryColor String?
-  faviconUrl     String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
 
-  users     User[]
-  menuItems MenuItem[]
-  tables    Table[]
-  orders    Order[]
-  settings  Settings?
-  payments  Payment[]
-}
-
-// User roles: ADMIN, STAFF, KITCHEN
+// User roles: ADMIN, MANAGER, STAFF, KITCHEN
 enum UserRole {
   ADMIN
+  MANAGER
   STAFF
   KITCHEN
+}
+
+enum StaffStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum StaffPayType {
+  HOURLY
+  DAILY
+  SALARY
+}
+
+enum ShiftStatus {
+  SCHEDULED
+  PUBLISHED
+  COMPLETED
+  CANCELLED
 }
 
 // Order status
@@ -51,16 +48,6 @@ enum OrderStatus {
   COOKING           // Being prepared
   COMPLETED         // Ready/Delivered
   CANCELLED         // Cancelled
-}
-
-// Menu categories
-enum MenuCategory {
-  DRINKS
-  MAIN_FOODS
-  SNACKS
-  CABINET_FOOD
-  CAKES
-  GIFTS
 }
 
 // Payment status
@@ -77,6 +64,11 @@ enum Language {
   INDONESIAN
 }
 
+enum WhatsAppMessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
 // Users (Admin, Staff, Kitchen)
 model User {
   id        String   @id @default(uuid())
@@ -85,15 +77,77 @@ model User {
   fullName  String
   role      UserRole @default(STAFF)
   isActive  Boolean  @default(true)
+  isDemo    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  tenantId  String?
-  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
 
   // Relations
   orders    Order[]  @relation("StaffOrders")
+}
 
-  @@index([tenantId])
+model Staff {
+  id          String      @id @default(uuid())
+  firstName   String
+  lastName    String
+  displayName String?
+  phone       String?
+  email       String?
+  status      StaffStatus @default(ACTIVE)
+  systemRole  UserRole    @default(STAFF)
+  payType     StaffPayType?
+  hourlyRate  Decimal?    @db.Decimal(10, 2)
+  dailyRate   Decimal?    @db.Decimal(10, 2)
+  salaryRate  Decimal?    @db.Decimal(10, 2) // Monthly salary
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  jobRoles    StaffJobRole[]
+  shifts      Shift[]
+
+  @@index([status])
+  @@unique([email])
+}
+
+model JobRole {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  staffAssignments StaffJobRole[]
+  shifts           Shift[]
+
+  @@unique([name])
+}
+
+model StaffJobRole {
+  staffId   String
+  jobRoleId String
+  staff     Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  jobRole   JobRole @relation(fields: [jobRoleId], references: [id], onDelete: Cascade)
+
+  @@id([staffId, jobRoleId])
+  @@index([jobRoleId])
+}
+
+model Shift {
+  id            String      @id @default(uuid())
+  staffId       String
+  staff         Staff       @relation(fields: [staffId], references: [id])
+  startDateTime DateTime
+  endDateTime   DateTime
+  breakMinutes  Int         @default(0)
+  roleOnShiftId String?
+  roleOnShift   JobRole?    @relation(fields: [roleOnShiftId], references: [id])
+  status        ShiftStatus @default(SCHEDULED)
+  notes         String?
+  createdBy     String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([staffId, startDateTime])
+  @@index([startDateTime])
 }
 
 // Menu Items
@@ -104,7 +158,7 @@ model MenuItem {
   description String?
   descriptionId String?    // Indonesian description
   price       Decimal      @db.Decimal(10, 2)
-  category    MenuCategory
+  category    String
   imageUrl    String?      // Local file path
   stockQty    Int?         // For cabinet food
   isAvailable Boolean      @default(true)
@@ -112,15 +166,12 @@ model MenuItem {
   sizes       Json?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-  tenantId    String?
-  tenant      Tenant?      @relation(fields: [tenantId], references: [id])
 
   // Relations
   orderItems  OrderItem[]
 
   @@index([category])
   @@index([isAvailable])
-  @@index([tenantId])
 }
 
 // Tables (for QR codes)
@@ -131,13 +182,9 @@ model Table {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  tenantId    String?
-  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
 
   // Relations
   orders      Order[]
-
-  @@index([tenantId])
 }
 
 // Customer Orders
@@ -182,15 +229,12 @@ model Order {
   staff           User?         @relation("StaffOrders", fields: [staffId], references: [id])
   orderItems      OrderItem[]
   payments        Payment[]
-  tenantId        String?
-  tenant          Tenant?       @relation(fields: [tenantId], references: [id])
 
   @@index([orderNumber])
   @@index([status])
   @@index([paymentStatus])
   @@index([createdAt])
   @@index([customerPhone])
-  @@index([tenantId])
 }
 
 // Order Items (products in an order)
@@ -227,22 +271,17 @@ model Payment {
   // Relations
   orderId       String
   order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  tenantId      String?
-  tenant        Tenant?       @relation(fields: [tenantId], references: [id])
 
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
   @@index([orderId])
   @@index([status])
-  @@index([tenantId])
 }
 
 // System Settings
 model Settings {
   id                  String   @id @default(uuid())
-  tenantId            String?  @unique
-  tenant              Tenant?  @relation(fields: [tenantId], references: [id])
 
   // Business Info
   businessName        String   @default("My Cafe")
@@ -258,6 +297,7 @@ model Settings {
 
   // Branding
   logoUrl             String?
+  appIconUrl          String?
   ogImageUrl          String?  // Open Graph image for social sharing
   themeColor          String   @default("#4F46E5")
 
@@ -300,6 +340,43 @@ model Settings {
   // Upsell Settings
   upsellItemIds       String[] @default([])
 
+  // Staff & Rostering Settings
+  staffModuleEnabled       Boolean @default(true)
+  payTypeOptionsEnabled    String[] @default(["HOURLY", "DAILY", "SALARY"])
+  defaultPayType           String   @default("HOURLY")
+  weekStartDay             String   @default("MON")
+  shiftTimeGranularity     Int      @default(30)
+  overlapRule              String   @default("BLOCK")
+  rosterVisibility         String   @default("OWN")
+
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+model WhatsAppSettings {
+  id                 String   @id @default(uuid())
+  enabled            Boolean  @default(false)
+  phoneNumberId      String?
+  businessAccountId  String?
+  accessToken        String?
+  webhookVerifyToken String?
+  defaultCountryCode String?
+  lastUpdatedAt      DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  logs WhatsAppLog[]
+}
+
+model WhatsAppLog {
+  id                 String                   @id @default(uuid())
+  whatsAppSettingsId String?
+  whatsAppSettings   WhatsAppSettings?        @relation(fields: [whatsAppSettingsId], references: [id])
+  direction          WhatsAppMessageDirection
+  payload            Json
+  statusCode         Int?
+  errorMessage       String?
+  createdAt          DateTime                 @default(now())
+
+  @@index([direction])
 }

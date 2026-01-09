@@ -2,12 +2,23 @@ import axios from '../lib/axios';
 import { MenuItem, MenuCategory, CategoryStats } from '../types';
 
 export const menuService = {
-  async getAll(category?: MenuCategory, isAvailable?: boolean): Promise<MenuItem[]> {
+  async getAll(category?: MenuCategory, isAvailable?: boolean, search?: string): Promise<MenuItem[]> {
     const params = new URLSearchParams();
     if (category) params.append('category', category);
     if (isAvailable !== undefined) params.append('isAvailable', String(isAvailable));
+    if (search) params.append('search', search);
 
     const { data } = await axios.get<MenuItem[]>(`/menu?${params.toString()}`);
+    return data;
+  },
+
+  async getItems(category?: MenuCategory, search?: string, isAvailable?: boolean): Promise<MenuItem[]> {
+    const params = new URLSearchParams();
+    if (category) params.append('categoryId', category);
+    if (search) params.append('search', search);
+    if (isAvailable !== undefined) params.append('isAvailable', String(isAvailable));
+
+    const { data } = await axios.get<MenuItem[]>(`/menu/items?${params.toString()}`);
     return data;
   },
 

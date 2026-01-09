@@ -2,8 +2,123 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import MarketingNav from '@/components/MarketingNav';
+import { useLanguage } from '@/contexts/LanguageContext';
+
+const content = {
+  en: {
+    hero: {
+      label: 'Contact us',
+      title: 'Get in Touch',
+      subtitle: "Have questions? We're here to help you get started with BrewPoint and the services showcased on our homepage.",
+      primaryCta: 'Book a demo',
+      secondaryCta: 'Review product features',
+    },
+    form: {
+      title: 'Send us a message',
+      success: "Thank you for your message! We'll get back to you soon.",
+      fields: {
+        name: { label: 'Full Name *', placeholder: 'John Doe' },
+        email: { label: 'Email Address *', placeholder: 'john@example.com' },
+        phone: { label: 'Phone Number', placeholder: '+64 21 123 4567' },
+        company: { label: 'Cafe/Business Name', placeholder: 'My Cafe' },
+        message: { label: 'Message *', placeholder: 'Tell us about your cafe and how we can help...' },
+      },
+      submit: 'Send Message',
+    },
+    info: {
+      title: 'Contact Information',
+      emailLabel: 'Email',
+      phoneLabel: 'Phone',
+      hoursLabel: 'Business Hours',
+      hoursLine1: 'Monday - Sunday',
+      hoursLine2: '9:00 AM - 5:00 PM (NZST)',
+      locationLabel: 'Location',
+      locationLine1: 'Auckland & Palmerston North',
+      locationLine2: 'New Zealand',
+    },
+    extra: {
+      title: 'Quick Response Time',
+      body1: 'We typically respond to all inquiries within 24 hours during business days.',
+      body2: 'For urgent technical support, existing customers can contact us directly via phone.',
+    },
+    footer: {
+      tagline: 'Modern cafe management system designed for efficiency and simplicity.',
+      productLabel: 'Product',
+      companyLabel: 'Company',
+      developerLabel: 'Developer',
+      productLinks: {
+        features: 'Features',
+        login: 'Login',
+      },
+      companyLinks: {
+        about: 'About Us',
+        services: 'Services',
+        contact: 'Contact',
+      },
+      developerLine: 'Developed by',
+      rights: 'All rights reserved.',
+    },
+  },
+  id: {
+    hero: {
+      label: 'Kontak',
+      title: 'Hubungi Kami',
+      subtitle: 'Punya pertanyaan? Kami siap membantu Anda memulai dengan BrewPoint dan layanan yang ditampilkan di halaman utama.',
+      primaryCta: 'Jadwalkan demo',
+      secondaryCta: 'Lihat fitur produk',
+    },
+    form: {
+      title: 'Kirim pesan kepada kami',
+      success: 'Terima kasih atas pesan Anda! Kami akan menghubungi Anda segera.',
+      fields: {
+        name: { label: 'Nama Lengkap *', placeholder: 'John Doe' },
+        email: { label: 'Alamat Email *', placeholder: 'nama@contoh.com' },
+        phone: { label: 'Nomor Telepon', placeholder: '+62 812 3456 7890' },
+        company: { label: 'Nama Kafe/Bisnis', placeholder: 'Kafe Saya' },
+        message: { label: 'Pesan *', placeholder: 'Ceritakan tentang kafe Anda dan bagaimana kami bisa membantu...' },
+      },
+      submit: 'Kirim Pesan',
+    },
+    info: {
+      title: 'Informasi Kontak',
+      emailLabel: 'Email',
+      phoneLabel: 'Telepon',
+      hoursLabel: 'Jam Operasional',
+      hoursLine1: 'Senin - Minggu',
+      hoursLine2: '09:00 - 17:00 (NZST)',
+      locationLabel: 'Lokasi',
+      locationLine1: 'Auckland & Palmerston North',
+      locationLine2: 'Selandia Baru',
+    },
+    extra: {
+      title: 'Respon Cepat',
+      body1: 'Kami biasanya merespons semua pertanyaan dalam 24 jam pada hari kerja.',
+      body2: 'Untuk dukungan teknis mendesak, pelanggan yang sudah ada dapat menghubungi kami langsung melalui telepon.',
+    },
+    footer: {
+      tagline: 'Sistem manajemen kafe modern untuk efisiensi dan kesederhanaan.',
+      productLabel: 'Produk',
+      companyLabel: 'Perusahaan',
+      developerLabel: 'Pengembang',
+      productLinks: {
+        features: 'Fitur',
+        login: 'Masuk',
+      },
+      companyLinks: {
+        about: 'Tentang Kami',
+        services: 'Layanan',
+        contact: 'Kontak',
+      },
+      developerLine: 'Dikembangkan oleh',
+      rights: 'Semua hak dilindungi.',
+    },
+  },
+} as const;
 
 export default function ContactPage() {
+  const { language } = useLanguage();
+  const t = content[language] ?? content.en;
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -12,145 +127,64 @@ export default function ContactPage() {
     message: '',
   });
   const [submitted, setSubmitted] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate form submission
     setSubmitted(true);
     setTimeout(() => setSubmitted(false), 5000);
     setFormData({ name: '', email: '', phone: '', company: '', message: '' });
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link href="/">
-                <h1 className="text-2xl font-bold text-gray-900 cursor-pointer">BrewPoint</h1>
-              </Link>
-              <span className="ml-2 text-sm text-gray-500">by Edgepoint</span>
-            </div>
+    <div className="home-apple min-h-screen bg-white text-[color:var(--ink)]">
+      <MarketingNav />
 
-            {/* Desktop menu */}
-            <div className="hidden md:flex items-center space-x-6">
-              <Link href="/features" className="text-sm font-medium text-gray-700 hover:text-indigo-600">
-                Features
-              </Link>
-              <Link href="/about" className="text-sm font-medium text-gray-700 hover:text-indigo-600">
-                About
-              </Link>
-              <Link href="/services" className="text-sm font-medium text-gray-700 hover:text-indigo-600">
-                Services
-              </Link>
-              <Link href="/contact" className="text-sm font-medium text-indigo-600">
-                Contact
-              </Link>
-              <Link
-                href="/login"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-              >
-                Login
-              </Link>
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-indigo-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-              >
-                <span className="sr-only">Open main menu</span>
-                {!mobileMenuOpen ? (
-                  <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                ) : (
-                  <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-              <Link
-                href="/features"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
-              >
-                Features
-              </Link>
-              <Link
-                href="/about"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
-              >
-                About
-              </Link>
-              <Link
-                href="/services"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-gray-50"
-              >
-                Services
-              </Link>
-              <Link
-                href="/contact"
-                className="block px-3 py-2 rounded-md text-base font-medium text-indigo-600 bg-indigo-50"
-              >
-                Contact
-              </Link>
-              <Link
-                href="/login"
-                className="block px-3 py-2 rounded-md text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-              >
-                Login
-              </Link>
-            </div>
-          </div>
-        )}
-      </nav>
-
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-900 text-white py-20">
+      <section className="bg-gradient-to-br from-indigo-50 via-white to-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-4xl font-extrabold sm:text-5xl md:text-6xl">
-              Get in Touch
+            <p className="text-sm font-semibold uppercase tracking-wide text-indigo-600">{t.hero.label}</p>
+            <h1 className="mt-2 text-4xl font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
+              {t.hero.title}
             </h1>
-            <p className="mt-6 text-xl text-indigo-200 max-w-3xl mx-auto">
-              Have questions? We're here to help you get started with BrewPoint
+            <p className="mt-6 text-xl text-gray-600 max-w-3xl mx-auto">
+              {t.hero.subtitle}
             </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <Link
+                href="/contact?type=demo"
+                className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-8 py-3 text-base font-medium text-white shadow hover:bg-indigo-700"
+              >
+                {t.hero.primaryCta}
+              </Link>
+              <Link
+                href="/features"
+                className="inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-8 py-3 text-base font-medium text-gray-900 shadow-sm hover:bg-gray-50"
+              >
+                {t.hero.secondaryCta}
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Contact Section */}
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:grid lg:grid-cols-2 lg:gap-16">
-            {/* Contact Form */}
             <div>
               <h2 className="text-3xl font-extrabold text-gray-900 mb-8">
-                Send us a message
+                {t.form.title}
               </h2>
               {submitted && (
                 <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-green-800 font-medium">
-                    Thank you for your message! We'll get back to you soon.
+                    {t.form.success}
                   </p>
                 </div>
               )}
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name *
+                    {t.form.fields.name.label}
                   </label>
                   <input
                     type="text"
@@ -159,12 +193,12 @@ export default function ContactPage() {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="John Doe"
+                    placeholder={t.form.fields.name.placeholder}
                   />
                 </div>
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address *
+                    {t.form.fields.email.label}
                   </label>
                   <input
                     type="email"
@@ -173,12 +207,12 @@ export default function ContactPage() {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="john@example.com"
+                    placeholder={t.form.fields.email.placeholder}
                   />
                 </div>
                 <div>
                   <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
+                    {t.form.fields.phone.label}
                   </label>
                   <input
                     type="tel"
@@ -186,12 +220,12 @@ export default function ContactPage() {
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="+64 21 123 4567"
+                    placeholder={t.form.fields.phone.placeholder}
                   />
                 </div>
                 <div>
                   <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-2">
-                    Cafe/Business Name
+                    {t.form.fields.company.label}
                   </label>
                   <input
                     type="text"
@@ -199,12 +233,12 @@ export default function ContactPage() {
                     value={formData.company}
                     onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="My Cafe"
+                    placeholder={t.form.fields.company.placeholder}
                   />
                 </div>
                 <div>
                   <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
-                    Message *
+                    {t.form.fields.message.label}
                   </label>
                   <textarea
                     id="message"
@@ -213,22 +247,21 @@ export default function ContactPage() {
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="Tell us about your cafe and how we can help..."
+                    placeholder={t.form.fields.message.placeholder}
                   />
                 </div>
                 <button
                   type="submit"
                   className="w-full px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                  Send Message
+                  {t.form.submit}
                 </button>
               </form>
             </div>
 
-            {/* Contact Information */}
             <div className="mt-12 lg:mt-0">
               <h2 className="text-3xl font-extrabold text-gray-900 mb-8">
-                Contact Information
+                {t.info.title}
               </h2>
 
               <div className="space-y-8">
@@ -241,7 +274,7 @@ export default function ContactPage() {
                     </div>
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900">Email</h3>
+                    <h3 className="text-lg font-medium text-gray-900">{t.info.emailLabel}</h3>
                     <p className="mt-1 text-gray-600">support@edgepoint.co.nz</p>
                   </div>
                 </div>
@@ -255,7 +288,7 @@ export default function ContactPage() {
                     </div>
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900">Phone</h3>
+                    <h3 className="text-lg font-medium text-gray-900">{t.info.phoneLabel}</h3>
                     <p className="mt-1 text-gray-600">0800 334 376</p>
                   </div>
                 </div>
@@ -269,9 +302,9 @@ export default function ContactPage() {
                     </div>
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900">Business Hours</h3>
-                    <p className="mt-1 text-gray-600">Monday - Sunday</p>
-                    <p className="text-gray-600">9:00 AM - 5:00 PM (NZST)</p>
+                    <h3 className="text-lg font-medium text-gray-900">{t.info.hoursLabel}</h3>
+                    <p className="mt-1 text-gray-600">{t.info.hoursLine1}</p>
+                    <p className="text-gray-600">{t.info.hoursLine2}</p>
                   </div>
                 </div>
 
@@ -285,23 +318,22 @@ export default function ContactPage() {
                     </div>
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-lg font-medium text-gray-900">Location</h3>
-                    <p className="mt-1 text-gray-600">Auckland & Palmerston North</p>
-                    <p className="text-gray-600">New Zealand</p>
+                    <h3 className="text-lg font-medium text-gray-900">{t.info.locationLabel}</h3>
+                    <p className="mt-1 text-gray-600">{t.info.locationLine1}</p>
+                    <p className="text-gray-600">{t.info.locationLine2}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Additional Info */}
               <div className="mt-12 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-4">
-                  Quick Response Time
+                  {t.extra.title}
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  We typically respond to all inquiries within 24 hours during business days.
+                  {t.extra.body1}
                 </p>
                 <p className="text-gray-600">
-                  For urgent technical support, existing customers can contact us directly via phone.
+                  {t.extra.body2}
                 </p>
               </div>
             </div>
@@ -309,35 +341,34 @@ export default function ContactPage() {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="bg-white border-t border-gray-200">
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4">BrewPoint</h3>
               <p className="text-gray-500 text-sm">
-                Modern cafe management system designed for efficiency and simplicity.
+                {t.footer.tagline}
               </p>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">Product</h3>
+              <h3 className="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">{t.footer.productLabel}</h3>
               <ul className="space-y-2">
-                <li><Link href="/features" className="text-gray-500 text-sm hover:text-indigo-600">Features</Link></li>
-                <li><Link href="/login" className="text-gray-500 text-sm hover:text-indigo-600">Login</Link></li>
+                <li><Link href="/features" className="text-gray-500 text-sm hover:text-indigo-600">{t.footer.productLinks.features}</Link></li>
+                <li><Link href="/login" className="text-gray-500 text-sm hover:text-indigo-600">{t.footer.productLinks.login}</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">Company</h3>
+              <h3 className="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">{t.footer.companyLabel}</h3>
               <ul className="space-y-2">
-                <li><Link href="/about" className="text-gray-500 text-sm hover:text-indigo-600">About Us</Link></li>
-                <li><Link href="/services" className="text-gray-500 text-sm hover:text-indigo-600">Services</Link></li>
-                <li><Link href="/contact" className="text-gray-500 text-sm hover:text-indigo-600">Contact</Link></li>
+                <li><Link href="/about" className="text-gray-500 text-sm hover:text-indigo-600">{t.footer.companyLinks.about}</Link></li>
+                <li><Link href="/services" className="text-gray-500 text-sm hover:text-indigo-600">{t.footer.companyLinks.services}</Link></li>
+                <li><Link href="/contact" className="text-gray-500 text-sm hover:text-indigo-600">{t.footer.companyLinks.contact}</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">Developer</h3>
+              <h3 className="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">{t.footer.developerLabel}</h3>
               <p className="text-gray-500 text-sm mb-2">
-                Developed by{' '}
+                {t.footer.developerLine}{' '}
                 <a
                   href="https://edgepoint.co.nz"
                   target="_blank"
@@ -348,7 +379,7 @@ export default function ContactPage() {
                 </a>
               </p>
               <p className="text-gray-400 text-xs mt-4">
-                © {new Date().getFullYear()} Edgepoint. All rights reserved.
+                © {new Date().getFullYear()} Edgepoint. {t.footer.rights}
               </p>
             </div>
           </div>

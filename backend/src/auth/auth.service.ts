@@ -14,12 +14,11 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async register(registerDto: RegisterDto, tenantId?: string) {
+  async register(registerDto: RegisterDto) {
     // Check if user already exists
     const existingUser = await this.prisma.user.findFirst({
       where: {
         email: registerDto.email,
-        ...(tenantId ? { tenantId } : {}),
       },
     });
 
@@ -37,7 +36,6 @@ export class AuthService {
         password: hashedPassword,
         fullName: registerDto.fullName,
         role: registerDto.role,
-        ...(tenantId ? { tenantId } : {}),
       },
       select: {
         id: true,
@@ -45,8 +43,8 @@ export class AuthService {
         fullName: true,
         role: true,
         isActive: true,
+        isDemo: true,
         createdAt: true,
-        tenantId: true,
       },
     });
 
@@ -56,12 +54,11 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto, tenantId?: string) {
+  async login(loginDto: LoginDto) {
     // Find user
     const user = await this.prisma.user.findFirst({
       where: {
         email: loginDto.email,
-        ...(tenantId ? { tenantId } : {}),
       },
     });
 
@@ -82,7 +79,7 @@ export class AuthService {
     }
 
     // Generate JWT token
-    const tokens = this.generateTokens(user.id, user.email, user.role, user.tenantId);
+    const tokens = this.generateTokens(user.id, user.email, user.role);
 
     return {
       ...tokens,
@@ -91,7 +88,7 @@ export class AuthService {
         email: user.email,
         fullName: user.fullName,
         role: user.role,
-        tenantId: user.tenantId,
+        isDemo: user.isDemo,
       },
     };
   }
@@ -109,7 +106,7 @@ export class AuthService {
         throw new UnauthorizedException('User not found or inactive');
       }
 
-      const tokens = this.generateTokens(user.id, user.email, user.role, user.tenantId);
+      const tokens = this.generateTokens(user.id, user.email, user.role);
 
       return {
         ...tokens,
@@ -118,7 +115,7 @@ export class AuthService {
           email: user.email,
           fullName: user.fullName,
           role: user.role,
-          tenantId: user.tenantId,
+          isDemo: user.isDemo,
         },
       };
     } catch (error) {
@@ -135,7 +132,7 @@ export class AuthService {
         fullName: true,
         role: true,
         isActive: true,
-        tenantId: true,
+        isDemo: true,
       },
     });
   }
@@ -149,9 +146,9 @@ export class AuthService {
         fullName: true,
         role: true,
         isActive: true,
+        isDemo: true,
         createdAt: true,
         updatedAt: true,
-        tenantId: true,
       },
     });
 
@@ -162,8 +159,8 @@ export class AuthService {
     return user;
   }
 
-  private generateTokens(userId: string, email: string, role: string, tenantId?: string | null) {
-    const payload = { sub: userId, email, role, tenantId };
+  private generateTokens(userId: string, email: string, role: string) {
+    const payload = { sub: userId, email, role };
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET'),
       expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m',

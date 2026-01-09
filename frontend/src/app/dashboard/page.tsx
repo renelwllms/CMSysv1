@@ -151,7 +151,7 @@ export default function DashboardPage() {
       value: statsLoading ? '...' : stats.todayOrders.toString(),
       change: '',
       changeType: 'neutral',
-      roles: ['ADMIN', 'STAFF'], // Visible to both
+      roles: ['ADMIN', 'MANAGER', 'STAFF'], // Visible to both
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -163,7 +163,7 @@ export default function DashboardPage() {
       value: statsLoading ? '...' : menuItemsCount.toString(),
       change: '',
       changeType: 'neutral',
-      roles: ['ADMIN', 'STAFF'],
+      roles: ['ADMIN', 'MANAGER', 'STAFF'],
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -175,7 +175,7 @@ export default function DashboardPage() {
       value: statsLoading ? '...' : stats.pendingOrders.toString(),
       change: stats.pendingOrders > 0 ? 'Awaiting Payment' : '',
       changeType: stats.pendingOrders > 0 ? 'neutral' : 'neutral',
-      roles: ['ADMIN', 'STAFF'],
+      roles: ['ADMIN', 'MANAGER', 'STAFF'],
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -203,10 +203,10 @@ export default function DashboardPage() {
 
   const allQuickActions = [
     {
-      name: 'Order Management',
-      description: 'Create and manage customer orders',
-      href: '/dashboard/orders',
-      roles: ['ADMIN', 'STAFF'],
+      name: 'POS (Touch)',
+      description: 'Launch the in-store touchscreen POS',
+      href: '/pos',
+      roles: ['ADMIN', 'MANAGER', 'STAFF'],
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -215,10 +215,22 @@ export default function DashboardPage() {
       color: 'bg-indigo-500',
     },
     {
+      name: 'Order Management (Legacy)',
+      description: 'Table-style view of all orders',
+      href: '/dashboard/orders',
+      roles: ['ADMIN', 'MANAGER', 'STAFF'],
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 12h18M3 17h18" />
+        </svg>
+      ),
+      color: 'bg-slate-500',
+    },
+    {
       name: 'Manage Menu',
       description: 'Update menu items and prices',
       href: '/dashboard/menu',
-      roles: ['ADMIN', 'STAFF'],
+      roles: ['ADMIN', 'MANAGER', 'STAFF'],
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -230,7 +242,7 @@ export default function DashboardPage() {
       name: 'View Tables',
       description: 'Manage table reservations',
       href: '/dashboard/tables',
-      roles: ['ADMIN', 'STAFF'],
+      roles: ['ADMIN', 'MANAGER', 'STAFF'],
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -242,13 +254,37 @@ export default function DashboardPage() {
       name: 'Kitchen View',
       description: 'Monitor kitchen orders',
       href: '/dashboard/kitchen',
-      roles: ['ADMIN', 'STAFF'],
+      roles: ['ADMIN', 'MANAGER', 'STAFF'],
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
       ),
       color: 'bg-orange-500',
+    },
+    {
+      name: 'Staff & Rosters',
+      description: 'Manage staff profiles and shifts',
+      href: '/dashboard/staff',
+      roles: ['ADMIN'],
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      ),
+      color: 'bg-emerald-500',
+    },
+    {
+      name: 'My Shifts',
+      description: 'View your roster',
+      href: '/dashboard/staff',
+      roles: ['STAFF'],
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10m-12 8h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      ),
+      color: 'bg-sky-500',
     },
     {
       name: 'Customers',
@@ -261,18 +297,6 @@ export default function DashboardPage() {
         </svg>
       ),
       color: 'bg-teal-500',
-    },
-    {
-      name: 'Tenants',
-      description: 'Manage tenant provisioning',
-      href: '/dashboard/tenants',
-      roles: ['ADMIN'],
-      icon: (
-        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M10 14h10M4 18h10" />
-        </svg>
-      ),
-      color: 'bg-blue-600',
     },
     {
       name: 'Settings',
@@ -366,7 +390,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className={`grid grid-cols-1 gap-6 sm:grid-cols-2 ${user?.role === 'STAFF' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} mb-8`}>
+        <div className={`grid grid-cols-1 gap-6 sm:grid-cols-2 ${user?.role === 'STAFF' || user?.role === 'MANAGER' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} mb-8`}>
           {dashboardStats.map((stat) => (
             <div
               key={stat.name}

@@ -3,7 +3,8 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
-import { MenuItem, MenuCategory, Order } from '@/types';
+import { ordersService, CreateOrderData } from '@/services/orders.service';
+import { MenuItem, MenuCategory } from '@/types';
 import { formatCurrency } from '@/lib/currency';
 import { tenantHeaders } from '@/lib/tenant';
 
@@ -188,9 +189,7 @@ export default function NewOrderPage() {
 
     setSubmitting(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-
-      const orderData = {
+      const orderData: CreateOrderData = {
         tableId: selectedTable.id,
         customerName,
         customerPhone,
@@ -204,22 +203,9 @@ export default function NewOrderPage() {
         })),
       };
 
-      const response = await fetch(`${apiUrl}/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderData),
-      });
-
-      if (response.ok) {
-        const order = await response.json();
-        alert(`Order ${order.orderNumber} created successfully!`);
-        router.push('/dashboard/orders');
-      } else {
-        const error = await response.json();
-        alert(`Failed to create order: ${error.message}`);
-      }
+      const order = await ordersService.create(orderData);
+      alert(`Order ${order.orderNumber} created successfully!`);
+      router.push('/dashboard/orders');
     } catch (error) {
       console.error('Failed to create order:', error);
       alert('Failed to create order');
@@ -424,7 +410,7 @@ export default function NewOrderPage() {
                         <p className="text-lg font-bold text-indigo-600 mt-2">
                           {item.sizes && item.sizes.length > 0
                             ? `${item.sizes[0].label}: ${formatCurrency(Number(item.sizes[0].price), currency)}`
-                            : formatCurrency(item.price, currency)}
+                            : formatCurrency(item.price ?? item.sizes?.[0]?.price ?? 0, currency)}
                         </p>
                         {item.category === MenuCategory.CABINET_FOOD && item.stockQty !== null && (
                           <p className="text-xs text-gray-500">Stock: {item.stockQty}</p>

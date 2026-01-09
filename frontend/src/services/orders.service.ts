@@ -52,6 +52,15 @@ export const ordersService = {
     return data;
   },
 
+  async search(params: { phone?: string; orderNumber?: string }): Promise<Order[]> {
+    const query = new URLSearchParams();
+    if (params.phone) query.append('phone', params.phone);
+    if (params.orderNumber) query.append('orderNumber', params.orderNumber);
+
+    const { data } = await axios.get<Order[]>(`/orders/search?${query.toString()}`);
+    return data;
+  },
+
   async create(orderData: CreateOrderData): Promise<Order> {
     const { data } = await axios.post<Order>('/orders', orderData);
     return data;

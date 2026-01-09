@@ -1,13 +1,22 @@
-import { PrismaClient, UserRole, MenuCategory, Language } from '@prisma/client';
+import { PrismaClient, UserRole, Language } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
+const MENU_CATEGORIES = {
+  DRINKS: 'DRINKS',
+  MAIN_FOODS: 'MAIN_FOODS',
+  SNACKS: 'SNACKS',
+  CABINET_FOOD: 'CABINET_FOOD',
+  CAKES: 'CAKES',
+  GIFTS: 'GIFTS',
+} as const;
 
 async function main() {
   console.log('Starting database seeding...');
 
   // Create default admin user
-  const hashedPassword = await bcrypt.hash('admin123', 10);
+  const adminPlain = 'Admin123!';
+  const hashedPassword = await bcrypt.hash(adminPlain, 10);
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@cafe.com' },
@@ -23,8 +32,26 @@ async function main() {
 
   console.log(`✓ Created admin user: ${admin.email}`);
 
+  // Create default manager user
+  const managerPlain = 'Manager123!';
+  const managerPassword = await bcrypt.hash(managerPlain, 10);
+  const manager = await prisma.user.upsert({
+    where: { email: 'manager@cafe.com' },
+    update: { password: managerPassword },
+    create: {
+      email: 'manager@cafe.com',
+      password: managerPassword,
+      fullName: 'Manager User',
+      role: UserRole.MANAGER,
+      isActive: true,
+    },
+  });
+
+  console.log(`✓ Created manager user: ${manager.email}`);
+
   // Create default staff user
-  const staffPassword = await bcrypt.hash('staff123', 10);
+  const staffPlain = 'Staff123!';
+  const staffPassword = await bcrypt.hash(staffPlain, 10);
   const staff = await prisma.user.upsert({
     where: { email: 'staff@cafe.com' },
     update: { password: staffPassword },
@@ -40,7 +67,8 @@ async function main() {
   console.log(`✓ Created staff user: ${staff.email}`);
 
   // Create default kitchen user
-  const kitchenPassword = await bcrypt.hash('kitchen123', 10);
+  const kitchenPlain = 'Kitchen123!';
+  const kitchenPassword = await bcrypt.hash(kitchenPlain, 10);
   const kitchen = await prisma.user.upsert({
     where: { email: 'kitchen@cafe.com' },
     update: { password: kitchenPassword },
@@ -55,35 +83,151 @@ async function main() {
 
   console.log(`✓ Created kitchen user: ${kitchen.email}`);
 
-  // Create default settings
-  const settings = await prisma.settings.upsert({
-    where: { id: '1' },
-    update: {},
+  // Create demo (read-only) users
+  const demoAdminPlain = 'DemoAdmin123!';
+  const demoAdminPassword = await bcrypt.hash(demoAdminPlain, 10);
+  const demoAdmin = await prisma.user.upsert({
+    where: { email: 'demo-admin@cafe.com' },
+    update: {
+      password: demoAdminPassword,
+      fullName: 'Demo Admin',
+      role: UserRole.ADMIN,
+      isActive: true,
+      isDemo: true,
+    },
     create: {
-      id: '1',
-      businessName: 'My Cafe',
-      businessNameId: 'Kafe Saya',
-      businessAddress: 'Jl. Contoh No. 123, Jakarta, Indonesia',
-      businessPhone: '+62-21-12345678',
-      businessWhatsApp: '+62-812-3456-7890',
-      businessEmail: 'info@mycafe.com',
-      themeColor: '#4F46E5',
-      defaultLanguage: Language.ENGLISH,
-      enableEnglish: true,
-      enableIndonesian: true,
-      openingHours: JSON.stringify({
-        monday: '08:00-22:00',
-        tuesday: '08:00-22:00',
-        wednesday: '08:00-22:00',
-        thursday: '08:00-22:00',
-        friday: '08:00-23:00',
-        saturday: '08:00-23:00',
-        sunday: '09:00-21:00',
-      }),
+      email: 'demo-admin@cafe.com',
+      password: demoAdminPassword,
+      fullName: 'Demo Admin',
+      role: UserRole.ADMIN,
+      isActive: true,
+      isDemo: true,
     },
   });
 
-  console.log(`✓ Created default settings for: ${settings.businessName}`);
+  console.log(`✓ Created demo admin user: ${demoAdmin.email}`);
+
+  const demoStaffPlain = 'DemoStaff123!';
+  const demoStaffPassword = await bcrypt.hash(demoStaffPlain, 10);
+  const demoStaff = await prisma.user.upsert({
+    where: { email: 'demo-staff@cafe.com' },
+    update: {
+      password: demoStaffPassword,
+      fullName: 'Demo Staff',
+      role: UserRole.STAFF,
+      isActive: true,
+      isDemo: true,
+    },
+    create: {
+      email: 'demo-staff@cafe.com',
+      password: demoStaffPassword,
+      fullName: 'Demo Staff',
+      role: UserRole.STAFF,
+      isActive: true,
+      isDemo: true,
+    },
+  });
+
+  console.log(`✓ Created demo staff user: ${demoStaff.email}`);
+
+  const demoManagerPlain = 'DemoManager123!';
+  const demoManagerPassword = await bcrypt.hash(demoManagerPlain, 10);
+  const demoManager = await prisma.user.upsert({
+    where: { email: 'demo-manager@cafe.com' },
+    update: {
+      password: demoManagerPassword,
+      fullName: 'Demo Manager',
+      role: UserRole.MANAGER,
+      isActive: true,
+      isDemo: true,
+    },
+    create: {
+      email: 'demo-manager@cafe.com',
+      password: demoManagerPassword,
+      fullName: 'Demo Manager',
+      role: UserRole.MANAGER,
+      isActive: true,
+      isDemo: true,
+    },
+  });
+
+  console.log(`✓ Created demo manager user: ${demoManager.email}`);
+
+  const demoKitchenPlain = 'DemoKitchen123!';
+  const demoKitchenPassword = await bcrypt.hash(demoKitchenPlain, 10);
+  const demoKitchen = await prisma.user.upsert({
+    where: { email: 'demo-kitchen@cafe.com' },
+    update: {
+      password: demoKitchenPassword,
+      fullName: 'Demo Kitchen',
+      role: UserRole.KITCHEN,
+      isActive: true,
+      isDemo: true,
+    },
+    create: {
+      email: 'demo-kitchen@cafe.com',
+      password: demoKitchenPassword,
+      fullName: 'Demo Kitchen',
+      role: UserRole.KITCHEN,
+      isActive: true,
+      isDemo: true,
+    },
+  });
+
+  console.log(`✓ Created demo kitchen user: ${demoKitchen.email}`);
+
+  // Create default settings
+  const settings = await prisma.settings.findFirst();
+  if (!settings) {
+    await prisma.settings.create({
+      data: {
+        businessName: 'My Cafe',
+        businessNameId: 'Kafe Saya',
+        businessAddress: 'Jl. Contoh No. 123, Jakarta, Indonesia',
+        businessPhone: '+62-21-12345678',
+        businessWhatsApp: '+62-812-3456-7890',
+        businessEmail: 'info@mycafe.com',
+        themeColor: '#4F46E5',
+        defaultLanguage: Language.ENGLISH,
+        enableEnglish: true,
+        enableIndonesian: true,
+        openingHours: JSON.stringify({
+          monday: '08:00-22:00',
+          tuesday: '08:00-22:00',
+          wednesday: '08:00-22:00',
+          thursday: '08:00-22:00',
+          friday: '08:00-23:00',
+          saturday: '08:00-23:00',
+          sunday: '09:00-21:00',
+        }),
+      },
+    });
+  }
+
+  console.log('✓ Ensured default settings');
+
+  const defaultJobRoles = [
+    'Chef',
+    'Reception',
+    'Wait Staff',
+    'Barista',
+    'Kitchen Hand',
+    'Cleaner',
+  ];
+
+  for (const roleName of defaultJobRoles) {
+    await prisma.jobRole.upsert({
+      where: {
+        name: roleName,
+      },
+      update: {},
+      create: {
+        name: roleName,
+      },
+    });
+  }
+
+  console.log('✓ Ensured default job roles');
 
   // Create sample menu items
   const menuItems = [
@@ -94,7 +238,7 @@ async function main() {
       description: 'Strong and bold espresso shot',
       descriptionId: 'Espresso kuat dan berani',
       price: 25000,
-      category: MenuCategory.DRINKS,
+      category: MENU_CATEGORIES.DRINKS,
       isAvailable: true,
     },
     {
@@ -103,7 +247,7 @@ async function main() {
       description: 'Classic cappuccino with steamed milk',
       descriptionId: 'Cappuccino klasik dengan susu kukus',
       price: 35000,
-      category: MenuCategory.DRINKS,
+      category: MENU_CATEGORIES.DRINKS,
       isAvailable: true,
     },
     {
@@ -112,7 +256,7 @@ async function main() {
       description: 'Cold coffee with milk',
       descriptionId: 'Kopi dingin dengan susu',
       price: 32000,
-      category: MenuCategory.DRINKS,
+      category: MENU_CATEGORIES.DRINKS,
       isAvailable: true,
     },
     // Main Foods
@@ -122,7 +266,7 @@ async function main() {
       description: 'Indonesian fried rice with chicken',
       descriptionId: 'Nasi goreng Indonesia dengan ayam',
       price: 45000,
-      category: MenuCategory.MAIN_FOODS,
+      category: MENU_CATEGORIES.MAIN_FOODS,
       isAvailable: true,
     },
     {
@@ -131,7 +275,7 @@ async function main() {
       description: 'Fried noodles with vegetables',
       descriptionId: 'Mie goreng dengan sayuran',
       price: 40000,
-      category: MenuCategory.MAIN_FOODS,
+      category: MENU_CATEGORIES.MAIN_FOODS,
       isAvailable: true,
     },
     // Snacks
@@ -141,7 +285,7 @@ async function main() {
       description: 'Crispy french fries',
       descriptionId: 'Kentang goreng renyah',
       price: 20000,
-      category: MenuCategory.SNACKS,
+      category: MENU_CATEGORIES.SNACKS,
       isAvailable: true,
     },
     {
@@ -150,7 +294,7 @@ async function main() {
       description: 'Vegetable spring rolls',
       descriptionId: 'Lumpia sayuran',
       price: 25000,
-      category: MenuCategory.SNACKS,
+      category: MENU_CATEGORIES.SNACKS,
       isAvailable: true,
     },
     // Cabinet Food
@@ -160,7 +304,7 @@ async function main() {
       description: 'Flaky croissant with chocolate filling',
       descriptionId: 'Croissant renyah dengan isi cokelat',
       price: 28000,
-      category: MenuCategory.CABINET_FOOD,
+      category: MENU_CATEGORIES.CABINET_FOOD,
       stockQty: 15,
       isAvailable: true,
     },
@@ -170,7 +314,7 @@ async function main() {
       description: 'Sweet pastry with cream cheese',
       descriptionId: 'Pastri manis dengan cream cheese',
       price: 30000,
-      category: MenuCategory.CABINET_FOOD,
+      category: MENU_CATEGORIES.CABINET_FOOD,
       stockQty: 12,
       isAvailable: true,
     },
@@ -181,7 +325,7 @@ async function main() {
       description: 'Rich chocolate cake for celebrations',
       descriptionId: 'Kue cokelat kaya untuk perayaan',
       price: 250000,
-      category: MenuCategory.CAKES,
+      category: MENU_CATEGORIES.CAKES,
       isAvailable: true,
     },
     {
@@ -190,7 +334,7 @@ async function main() {
       description: 'Classic vanilla cake with buttercream',
       descriptionId: 'Kue vanilla klasik dengan buttercream',
       price: 230000,
-      category: MenuCategory.CAKES,
+      category: MENU_CATEGORIES.CAKES,
       isAvailable: true,
     },
     // Gifts
@@ -200,7 +344,7 @@ async function main() {
       description: 'Beautiful flower bouquet',
       descriptionId: 'Buket bunga cantik',
       price: 150000,
-      category: MenuCategory.GIFTS,
+      category: MENU_CATEGORIES.GIFTS,
       isAvailable: true,
     },
     {
@@ -209,18 +353,29 @@ async function main() {
       description: 'Assorted gift hamper',
       descriptionId: 'Hamper hadiah beragam',
       price: 200000,
-      category: MenuCategory.GIFTS,
+      category: MENU_CATEGORIES.GIFTS,
       isAvailable: true,
     },
   ];
 
   for (const item of menuItems) {
-    await prisma.menuItem.create({
-      data: item,
+    const existing = await prisma.menuItem.findFirst({
+      where: {
+        name: item.name,
+        category: item.category,
+      },
     });
+
+    if (!existing) {
+      await prisma.menuItem.create({
+        data: {
+          ...item,
+        },
+      });
+    }
   }
 
-  console.log(`✓ Created ${menuItems.length} sample menu items`);
+  console.log(`✓ Ensured ${menuItems.length} sample menu items`);
 
   // Create sample tables
   const tables = [
@@ -237,12 +392,16 @@ async function main() {
   ];
 
   for (const table of tables) {
-    await prisma.table.create({
-      data: table,
+    await prisma.table.upsert({
+      where: { tableNumber: table.tableNumber },
+      update: {},
+      create: {
+        ...table,
+      },
     });
   }
 
-  console.log(`✓ Created ${tables.length} tables`);
+  console.log(`✓ Ensured ${tables.length} tables`);
 
   console.log('\n✅ Database seeding completed successfully!');
   console.log('\nDefault Users:');
@@ -250,6 +409,10 @@ async function main() {
   console.log('Admin:   admin@cafe.com / Admin123!');
   console.log('Staff:   staff@cafe.com / Staff123!');
   console.log('Kitchen: kitchen@cafe.com / Kitchen123!');
+  console.log('\nRead-only Demo Users:');
+  console.log('Demo Admin:   demo-admin@cafe.com / DemoAdmin123!');
+  console.log('Demo Staff:   demo-staff@cafe.com / DemoStaff123!');
+  console.log('Demo Kitchen: demo-kitchen@cafe.com / DemoKitchen123!');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }
 

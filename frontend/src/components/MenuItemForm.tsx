@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { MenuItem, MenuCategory } from '@/types';
+import { tenantHeaders } from '@/lib/tenant';
 import { menuService } from '@/services/menu.service';
 
 interface MenuItemFormProps {
@@ -10,8 +11,45 @@ interface MenuItemFormProps {
   onSuccess: () => void;
 }
 
+type MenuItemFormState = {
+  name: string;
+  nameId: string;
+  category: string;
+  price: string;
+  description: string;
+  imageUrl: string;
+  stockQty: string;
+  isAvailable: boolean;
+  sizes: { label: string; price: string }[];
+};
+
+const DEFAULT_CATEGORIES = Object.values(MenuCategory) as string[];
+
+const normalizeCategory = (value: string) =>
+  value
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase();
+
+const formatCategoryLabel = (value: string) =>
+  value
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const buildCategoryList = (incoming: string[], extra?: string) => {
+  const merged = new Set<string>(DEFAULT_CATEGORIES);
+  incoming.forEach((category) => {
+    if (category) merged.add(category);
+  });
+  if (extra) merged.add(extra);
+  const extras = Array.from(merged).filter((category) => !DEFAULT_CATEGORIES.includes(category)).sort();
+  return [...DEFAULT_CATEGORIES, ...extras];
+};
+
 export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<MenuItemFormState>({
     name: '',
     nameId: '',
     category: MenuCategory.DRINKS,
@@ -26,8 +64,14 @@ export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormP
   const [imagePreview, setImagePreview] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [currency, setCurrency] = useState<string>('IDR');
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   useEffect(() => {
+    loadSettings();
+    loadCategories();
     if (item) {
       setFormData({
         name: item.name,
@@ -48,6 +92,41 @@ export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormP
       }
     }
   }, [item]);
+
+  const loadSettings = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      const response = await fetch(`${apiUrl}/settings`, { headers: tenantHeaders() });
+      if (response.ok) {
+        const data = await response.json();
+        setCurrency(data.currency || 'IDR');
+      }
+    } catch (err) {
+      console.error('Failed to load settings', err);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const data = await menuService.getCategories();
+      setCategories(buildCategoryList(data, item?.category));
+    } catch (err) {
+      setCategories(buildCategoryList([], item?.category));
+    }
+  };
+
+  const handleAddCategory = () => {
+    const normalized = normalizeCategory(newCategoryName);
+    if (!normalized) {
+      setError('Please enter a category name.');
+      return;
+    }
+    setError('');
+    setCategories((prev) => buildCategoryList(prev, normalized));
+    setFormData((prev) => ({ ...prev, category: normalized }));
+    setNewCategoryName('');
+    setAddingCategory(false);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -144,15 +223,6 @@ export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormP
     }));
   };
 
-  const categories = [
-    { value: MenuCategory.DRINKS, label: 'Drinks' },
-    { value: MenuCategory.MAIN_FOODS, label: 'Main Foods' },
-    { value: MenuCategory.SNACKS, label: 'Snacks' },
-    { value: MenuCategory.CABINET_FOOD, label: 'Cabinet Food' },
-    { value: MenuCategory.CAKES, label: 'Cakes' },
-    { value: MenuCategory.GIFTS, label: 'Gifts' },
-  ];
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -212,9 +282,18 @@ export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormP
           {/* Category and Price */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category <span className="text-red-500">*</span>
-              </label>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-700">
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setAddingCategory(true)}
+                  className="text-sm text-indigo-600 hover:text-indigo-700 font-semibold"
+                >
+                  + Add category
+                </button>
+              </div>
               <select
                 name="category"
                 value={formData.category}
@@ -222,17 +301,47 @@ export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormP
                 required
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
-                {categories.map(cat => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label}
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {formatCategoryLabel(category)}
                   </option>
                 ))}
               </select>
+              {addingCategory && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="e.g., Iced Tea"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddCategory}
+                      className="flex-1 px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddingCategory(false);
+                        setNewCategoryName('');
+                      }}
+                      className="flex-1 px-3 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Base Price (Rp)
+                Base Price ({currency})
               </label>
               <input
                 type="number"
@@ -240,9 +349,9 @@ export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormP
                 value={formData.price}
                 onChange={handleChange}
                 min="0"
-                step="1000"
+                step="0.01"
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="e.g., 25000"
+                placeholder="e.g., 3.50"
               />
               <p className="text-xs text-gray-500 mt-1">Used if no sizes are set.</p>
             </div>
@@ -289,7 +398,7 @@ export default function MenuItemForm({ item, onClose, onSuccess }: MenuItemFormP
                     type="number"
                     placeholder="Price"
                     min="0"
-                    step="1000"
+                    step="0.01"
                     value={size.price}
                     onChange={(e) => {
                       const value = e.target.value;

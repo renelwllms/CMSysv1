@@ -1,1 +1,279 @@
 @import "tailwindcss";
+@import "./fullcalendar.css";
+
+:root {
+  --ink: #0b0b0d;
+  --muted: #4b5563;
+  --muted-strong: #374151;
+  --muted-soft: #6b7280;
+  --muted-faint: #9ca3af;
+  --accent: #0f766e;
+  --accent-strong: #0f5f57;
+  --accent-soft: #d6f3f0;
+  --accent-tint: #f0fdfa;
+  --warm: #f7f1e9;
+  --line: #e5e7eb;
+  --surface: #f8fafc;
+  --surface-strong: #f1f5f9;
+}
+
+.home-apple {
+  --ink: #0b0b0d;
+  --muted: #4b5563;
+  --muted-strong: #374151;
+  --muted-soft: #6b7280;
+  --muted-faint: #9ca3af;
+  --accent: #0f766e;
+  --accent-strong: #0f5f57;
+  --accent-soft: #d6f3f0;
+  --accent-tint: #f0fdfa;
+  --warm: #f7f1e9;
+  --line: #e5e7eb;
+  --surface: #f8fafc;
+  --surface-strong: #f1f5f9;
+}
+
+.home-apple .text-gray-900,
+.home-apple .text-gray-800 {
+  color: var(--ink);
+}
+
+.home-apple .text-gray-700 {
+  color: var(--muted-strong);
+}
+
+.home-apple .text-gray-600 {
+  color: var(--muted);
+}
+
+.home-apple .text-gray-500 {
+  color: var(--muted-soft);
+}
+
+.home-apple .text-gray-400 {
+  color: var(--muted-faint);
+}
+
+.home-apple .text-gray-300 {
+  color: var(--line);
+}
+
+.home-apple .bg-gray-50 {
+  background-color: var(--surface);
+}
+
+.home-apple .bg-gray-100 {
+  background-color: var(--surface-strong);
+}
+
+.home-apple .bg-gray-200 {
+  background-color: var(--line);
+}
+
+.home-apple .bg-gray-900 {
+  background-color: var(--ink);
+}
+
+.home-apple .border-gray-100,
+.home-apple .border-gray-200,
+.home-apple .border-gray-300 {
+  border-color: var(--line);
+}
+
+.home-apple .text-indigo-700 {
+  color: var(--accent-strong);
+}
+
+.home-apple .text-indigo-900,
+.home-apple .text-indigo-800 {
+  color: var(--accent-strong);
+}
+
+.home-apple .text-indigo-600,
+.home-apple .text-indigo-500,
+.home-apple .text-indigo-400 {
+  color: var(--accent);
+}
+
+.home-apple .text-indigo-300,
+.home-apple .text-indigo-200,
+.home-apple .text-indigo-100 {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.home-apple .bg-indigo-700 {
+  background-color: var(--accent-strong);
+}
+
+.home-apple .bg-indigo-500 {
+  background-color: var(--accent);
+}
+
+.home-apple .bg-indigo-600,
+.home-apple .bg-indigo-400 {
+  background-color: var(--accent);
+}
+
+.home-apple .bg-indigo-100 {
+  background-color: var(--accent-soft);
+}
+
+.home-apple .bg-indigo-50 {
+  background-color: var(--accent-tint);
+}
+
+.home-apple .border-indigo-100,
+.home-apple .border-indigo-200 {
+  border-color: var(--accent-soft);
+}
+
+.home-apple .border-indigo-500,
+.home-apple .border-indigo-600 {
+  border-color: var(--accent);
+}
+
+.home-apple .border-indigo-400 {
+  border-color: var(--accent);
+}
+
+.home-apple .hover\:border-indigo-400:hover,
+.home-apple .hover\:border-indigo-500:hover,
+.home-apple .hover\:border-indigo-600:hover {
+  border-color: var(--accent);
+}
+
+.home-apple .hover\:text-indigo-700:hover {
+  color: var(--accent-strong);
+}
+
+.home-apple .hover\:text-indigo-900:hover,
+.home-apple .hover\:text-indigo-800:hover {
+  color: var(--accent-strong);
+}
+
+.home-apple .hover\:text-indigo-600:hover,
+.home-apple .hover\:text-indigo-500:hover {
+  color: var(--accent);
+}
+
+.home-apple .hover\:bg-indigo-700:hover,
+.home-apple .hover\:bg-indigo-600:hover,
+.home-apple .hover\:bg-indigo-500:hover {
+  background-color: var(--accent-strong);
+}
+
+.home-apple .hover\:bg-indigo-100:hover {
+  background-color: var(--accent-soft);
+}
+
+.home-apple .focus\:ring-indigo-500:focus,
+.home-apple .focus\:ring-indigo-600:focus,
+.home-apple .focus\:ring-indigo-500:focus-visible,
+.home-apple .focus\:ring-indigo-600:focus-visible {
+  --tw-ring-color: var(--accent);
+}
+
+.home-apple .ring-indigo-500 {
+  --tw-ring-color: var(--accent);
+}
+
+.home-apple .focus-visible\:outline-indigo-600:focus-visible {
+  outline-color: var(--accent);
+}
+
+.home-apple .focus\:border-indigo-500:focus,
+.home-apple .focus\:border-indigo-600:focus {
+  border-color: var(--accent);
+}
+
+.home-apple .from-indigo-50 {
+  --tw-gradient-from: var(--accent-tint);
+  --tw-gradient-to: rgba(240, 253, 250, 0);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+.home-apple .to-indigo-900 {
+  --tw-gradient-to: #0f5f57;
+}
+
+.home-apple .from-orange-400 {
+  --tw-gradient-from: var(--accent);
+  --tw-gradient-to: rgba(15, 118, 110, 0);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+.home-apple .to-pink-500 {
+  --tw-gradient-to: var(--accent-strong);
+}
+
+.home-apple .from-purple-500 {
+  --tw-gradient-from: var(--accent);
+  --tw-gradient-to: rgba(15, 118, 110, 0);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+.home-apple .to-pink-600 {
+  --tw-gradient-to: var(--accent-strong);
+}
+
+.home-apple .text-orange-100 {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.home-apple .file\:bg-indigo-50::file-selector-button {
+  background-color: var(--accent-tint);
+}
+
+.home-apple .file\:text-indigo-700::file-selector-button {
+  color: var(--accent-strong);
+}
+
+@keyframes home-fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.home-apple .reveal {
+  opacity: 0;
+  animation: home-fade-up 0.9s ease forwards;
+}
+
+.home-apple .reveal-delay-1 {
+  animation-delay: 120ms;
+}
+
+.home-apple .reveal-delay-2 {
+  animation-delay: 240ms;
+}
+
+.home-apple .reveal-delay-3 {
+  animation-delay: 360ms;
+}
+
+.home-apple .float-soft {
+  animation: home-float 8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-apple .reveal,
+  .home-apple .float-soft {
+    animation: none;
+    opacity: 1;
+  }
+}

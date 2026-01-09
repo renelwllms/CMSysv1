@@ -31,19 +31,34 @@ export function formatCurrency(amount: number | string, currencyCode: string = '
   }
 
   const config = currencyConfig[currencyCode] || { locale: 'en-US' };
+  const currencyDefaults = new Intl.NumberFormat(config.locale, {
+    style: 'currency',
+    currency: currencyCode,
+  }).resolvedOptions();
+  const minDefaultFractions = currencyDefaults.minimumFractionDigits ?? 0;
+  const maxDefaultFractions = currencyDefaults.maximumFractionDigits ?? 2;
+
+  // Preserve cents when a fractional value is provided (e.g., $3.50 should stay $3.50)
+  const hasFraction = typeof amount === 'string'
+    ? (amount.includes('.') && Number(amount.split('.')[1]) > 0)
+    : !Number.isInteger(numAmount);
+  const shouldShowCents = hasFraction && minDefaultFractions > 0;
+  const fractionDigits = shouldShowCents
+    ? Math.max(minDefaultFractions, 2)
+    : Math.min(minDefaultFractions, maxDefaultFractions);
 
   try {
     return new Intl.NumberFormat(config.locale, {
       style: 'currency',
       currency: currencyCode,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
     }).format(numAmount);
   } catch (error) {
     // Fallback if currency code is not supported
     return `${currencyCode} ${numAmount.toLocaleString(config.locale, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
     })}`;
   }
 }

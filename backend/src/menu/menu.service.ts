@@ -2,15 +2,23 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
-import { MenuCategory } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+
+const DEFAULT_MENU_CATEGORIES = [
+  'DRINKS',
+  'MAIN_FOODS',
+  'SNACKS',
+  'CABINET_FOOD',
+  'CAKES',
+  'GIFTS',
+];
 
 @Injectable()
 export class MenuService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createMenuItemDto: CreateMenuItemDto, tenantId: string, imageUrl?: string) {
+  async create(createMenuItemDto: CreateMenuItemDto, imageUrl?: string) {
     const sizes = createMenuItemDto.sizes ? (createMenuItemDto.sizes as any) : undefined;
     const resolvedPrice =
       createMenuItemDto.price ?? (Array.isArray(sizes) && sizes.length > 0 ? sizes[0].price : undefined);
@@ -31,13 +39,16 @@ export class MenuService {
         isAvailable: createMenuItemDto.isAvailable ?? true,
         imageUrl,
         sizes,
-        tenantId,
       },
     });
   }
 
-  async findAll(tenantId: string, category?: MenuCategory, isAvailable?: boolean) {
-    const where: any = { isActive: true, tenantId };
+  async findAll(
+    category?: string,
+    isAvailable?: boolean,
+    search?: string,
+  ) {
+    const where: any = { isActive: true };
 
     if (category) {
       where.category = category;
@@ -47,15 +58,27 @@ export class MenuService {
       where.isAvailable = isAvailable;
     }
 
+    if (search) {
+      const term = search.trim();
+      if (term.length > 0) {
+        where.OR = [
+          { name: { contains: term, mode: 'insensitive' } },
+          { description: { contains: term, mode: 'insensitive' } },
+          { nameId: { contains: term, mode: 'insensitive' } },
+          { descriptionId: { contains: term, mode: 'insensitive' } },
+        ];
+      }
+    }
+
     return this.prisma.menuItem.findMany({
       where,
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
     });
   }
 
-  async findOne(id: string, tenantId: string) {
+  async findOne(id: string) {
     const menuItem = await this.prisma.menuItem.findUnique({
-      where: { id, tenantId },
+      where: { id },
     });
 
     if (!menuItem) {
@@ -65,8 +88,8 @@ export class MenuService {
     return menuItem;
   }
 
-  async update(id: string, tenantId: string, updateMenuItemDto: UpdateMenuItemDto, imageUrl?: string) {
-    const menuItem = await this.findOne(id, tenantId);
+  async update(id: string, updateMenuItemDto: UpdateMenuItemDto, imageUrl?: string) {
+    const menuItem = await this.findOne(id);
 
     // If new image is uploaded, delete old one
     if (imageUrl && menuItem.imageUrl) {
@@ -86,17 +109,17 @@ export class MenuService {
     if (updateMenuItemDto.sizes !== undefined) updateData.sizes = updateMenuItemDto.sizes as any;
 
     return this.prisma.menuItem.update({
-      where: { id, tenantId },
+      where: { id },
       data: updateData,
     });
   }
 
-  async remove(id: string, tenantId: string) {
-    const menuItem = await this.findOne(id, tenantId);
+  async remove(id: string) {
+    const menuItem = await this.findOne(id);
 
     // Soft delete by setting isActive to false
     const deleted = await this.prisma.menuItem.update({
-      where: { id, tenantId },
+      where: { id },
       data: { isActive: false },
     });
 
@@ -108,13 +131,13 @@ export class MenuService {
     return deleted;
   }
 
-  async updateStock(id: string, tenantId: string, stockQty: number) {
+  async updateStock(id: string, stockQty: number) {
     if (stockQty < 0) {
       throw new BadRequestException('Stock quantity cannot be negative');
     }
 
     return this.prisma.menuItem.update({
-      where: { id, tenantId },
+      where: { id },
       data: {
         stockQty,
         isAvailable: stockQty > 0,
@@ -122,23 +145,22 @@ export class MenuService {
     });
   }
 
-  async findByCategory(category: MenuCategory, tenantId: string) {
+  async findByCategory(category: string) {
     return this.prisma.menuItem.findMany({
       where: {
         category,
         isActive: true,
         isAvailable: true,
-        tenantId,
       },
       orderBy: { name: 'asc' },
     });
   }
 
-  async toggleAvailability(id: string, tenantId: string) {
-    const menuItem = await this.findOne(id, tenantId);
+  async toggleAvailability(id: string) {
+    const menuItem = await this.findOne(id);
 
     return this.prisma.menuItem.update({
-      where: { id, tenantId },
+      where: { id },
       data: {
         isAvailable: !menuItem.isAvailable,
       },
@@ -157,13 +179,26 @@ export class MenuService {
   }
 
   async getCategories() {
-    return Object.values(MenuCategory);
+    const stored = await this.prisma.menuItem.findMany({
+      where: { isActive: true },
+      distinct: ['category'],
+      select: { category: true },
+    });
+
+    const dynamicCategories = stored
+      .map((entry) => entry.category)
+      .filter((category): category is string => Boolean(category));
+
+    const merged = new Set<string>([...DEFAULT_MENU_CATEGORIES, ...dynamicCategories]);
+    const defaults = DEFAULT_MENU_CATEGORIES.filter((category) => merged.has(category));
+    const extras = Array.from(merged).filter((category) => !DEFAULT_MENU_CATEGORIES.includes(category)).sort();
+    return [...defaults, ...extras];
   }
 
-  async getCategoryStats(tenantId: string) {
+  async getCategoryStats() {
     const stats = await this.prisma.menuItem.groupBy({
       by: ['category'],
-      where: { isActive: true, tenantId },
+      where: { isActive: true },
       _count: {
         id: true,
       },

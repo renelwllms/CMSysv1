@@ -118,9 +118,15 @@ function PublicOrderPageContent() {
   };
 
   const addToCart = (menuItem: MenuItem, sizeLabel?: string) => {
-    const unitPrice = sizeLabel && menuItem.sizes
-      ? Number(menuItem.sizes.find(s => s.label === sizeLabel)?.price ?? menuItem.price)
-      : Number(menuItem.price);
+    const resolvePrice = () => {
+      if (sizeLabel && menuItem.sizes) {
+        const sized = menuItem.sizes.find(s => s.label === sizeLabel)?.price;
+        if (sized !== undefined && sized !== null) return Number(sized);
+      }
+      const base = menuItem.price ?? menuItem.sizes?.[0]?.price ?? 0;
+      return Number(base);
+    };
+    const unitPrice = resolvePrice();
 
     setCart(prev => {
       const existingItem = prev.find(item =>
@@ -522,9 +528,10 @@ function PublicOrderPageContent() {
                   )}
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-indigo-600">
-                      {item.sizes && item.sizes.length > 0
-                        ? formatCurrency(Number(item.sizes[0].price), currency)
-                        : formatCurrency(Number(item.price), currency)}
+                      {formatCurrency(
+                        Number(item.price ?? item.sizes?.[0]?.price ?? 0),
+                        currency
+                      )}
                     </span>
                     <button
                       onClick={(e) => {
@@ -623,9 +630,10 @@ function PublicOrderPageContent() {
                               <div className="font-semibold text-gray-900 line-clamp-2">{item.name}</div>
                               <div className="text-xs text-gray-500 mb-2 capitalize">{item.category.toLowerCase().replace(/_/g, ' ')}</div>
                               <div className="text-sm text-gray-700 mb-2 font-medium">
-                                {item.sizes && item.sizes.length > 0
-                                  ? formatCurrency(Number(item.sizes[0].price), currency)
-                                  : formatCurrency(Number(item.price), currency)}
+                                {formatCurrency(
+                                  Number(item.price ?? item.sizes?.[0]?.price ?? 0),
+                                  currency
+                                )}
                               </div>
                               <button
                                 onClick={() => {

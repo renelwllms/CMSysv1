@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
@@ -22,7 +23,7 @@ export default function LoginPage() {
       if (user.role === 'KITCHEN') {
         router.push('/dashboard/kitchen');
       } else if (user.role === 'STAFF') {
-        router.push('/dashboard/orders');
+        router.push('/pos');
       } else {
         router.push('/dashboard');
       }
@@ -34,14 +35,25 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+    <div className="home-apple flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 text-[color:var(--ink)] sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8">
         <div>
+          <div className="flex justify-between items-center">
+            <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
+              BrewPoint
+            </h2>
+            <Link
+              href="/"
+              className="text-sm font-semibold text-indigo-600 hover:text-indigo-500"
+            >
+              ← Back to home
+            </Link>
+          </div>
           <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-            BrewPoint
+            Sign in to your account
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in to your account
+            Welcome back
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -90,11 +102,12 @@ export default function LoginPage() {
           </div>
 
           <div className="text-sm text-gray-600">
-            <p className="mb-2">Test accounts:</p>
+            <p className="mb-2">Read-only demo users:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Admin: admin@cafe.com / admin123</li>
-              <li>Staff: staff@cafe.com / staff123</li>
-              <li>Kitchen: kitchen@cafe.com / kitchen123</li>
+              <li>Demo Admin: demo-admin@cafe.com / DemoAdmin123!</li>
+              <li>Demo Manager: demo-manager@cafe.com / DemoManager123!</li>
+              <li>Demo Staff: demo-staff@cafe.com / DemoStaff123!</li>
+              <li>Demo Kitchen: demo-kitchen@cafe.com / DemoKitchen123!</li>
             </ul>
           </div>
 

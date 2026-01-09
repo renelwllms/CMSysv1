@@ -1,4 +1,3 @@
-import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
@@ -11,10 +10,12 @@ import { OrdersModule } from './orders/orders.module';
 import { TasksModule } from './tasks/tasks.module';
 import { SettingsModule } from './settings/settings.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
-import { TenantModule } from './tenant/tenant.module';
-import { TenantMiddleware } from './tenant/tenant.middleware';
-import { MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { Module } from '@nestjs/common';
+import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { DemoReadonlyInterceptor } from './auth/interceptors/demo-readonly.interceptor';
+import { BackupModule } from './backup/backup.module';
+import { StaffModule } from './staff/staff.module';
 
 @Module({
   imports: [
@@ -34,7 +35,9 @@ import { MiddlewareConsumer, NestModule } from '@nestjs/common';
     OrdersModule,
     TasksModule,
     SettingsModule,
-    TenantModule,
+    WhatsappModule,
+    BackupModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [
@@ -43,10 +46,10 @@ import { MiddlewareConsumer, NestModule } from '@nestjs/common';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: DemoReadonlyInterceptor,
+    },
   ],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantMiddleware).forRoutes('*');
-  }
-}
+export class AppModule {}

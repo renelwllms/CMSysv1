@@ -6,6 +6,7 @@ import {
   IsDecimal,
   IsNumber,
   IsArray,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Language } from '@prisma/client';
@@ -44,6 +45,10 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsString()
   logoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  appIconUrl?: string;
 
   @IsOptional()
   @IsString()
@@ -135,4 +140,36 @@ export class UpdateSettingsDto {
   @IsArray()
   @IsString({ each: true })
   upsellItemIds?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  staffModuleEnabled?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsIn(['HOURLY', 'DAILY', 'SALARY'], { each: true })
+  payTypeOptionsEnabled?: string[];
+
+  @IsOptional()
+  @IsIn(['HOURLY', 'DAILY', 'SALARY'])
+  defaultPayType?: string;
+
+  @IsOptional()
+  @IsIn(['MON', 'SUN'])
+  weekStartDay?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @IsIn([15, 30, 60])
+  shiftTimeGranularity?: number;
+
+  @IsOptional()
+  @IsIn(['ALLOW', 'WARN', 'BLOCK'])
+  overlapRule?: string;
+
+  @IsOptional()
+  @IsIn(['OWN', 'ALL'])
+  rosterVisibility?: string;
 }
