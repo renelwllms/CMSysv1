@@ -5,6 +5,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
+import type { StringValue } from 'ms';
 
 @Injectable()
 export class AuthService {
@@ -162,18 +163,46 @@ export class AuthService {
   private generateTokens(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
     const accessToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m',
+      secret: this.getRequiredConfig('JWT_SECRET'),
+      expiresIn: this.resolveExpiresIn(
+        this.configService.get<string>('JWT_ACCESS_EXPIRES_IN'),
+        '15m',
+      ),
     });
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.getRefreshSecret(),
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d',
+      expiresIn: this.resolveExpiresIn(
+        this.configService.get<string>('JWT_REFRESH_EXPIRES_IN'),
+        '7d',
+      ),
     });
 
     return { accessToken, refreshToken };
   }
 
   private getRefreshSecret() {
-    return this.configService.get<string>('JWT_REFRESH_SECRET') || this.configService.get<string>('JWT_SECRET');
+    return this.configService.get<string>('JWT_REFRESH_SECRET') || this.getRequiredConfig('JWT_SECRET');
+  }
+
+  private getRequiredConfig(key: string) {
+    const value = this.configService.get<string>(key);
+    if (!value) {
+      throw new Error(`${key} is not set`);
+    }
+    return value;
+  }
+
+  private resolveExpiresIn(
+    value: string | undefined,
+    fallback: StringValue | number,
+  ): StringValue | number {
+    if (!value) {
+      return fallback;
+    }
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric) && value.trim() !== '') {
+      return numeric;
+    }
+    return value as StringValue;
   }
 }

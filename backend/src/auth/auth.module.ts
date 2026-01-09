@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from '../prisma/prisma.module';
+import type { StringValue } from 'ms';
 
 @Module({
   imports: [
@@ -14,12 +15,21 @@ import { PrismaModule } from '../prisma/prisma.module';
     ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRES_IN') || '7d',
-        },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET');
+        if (!secret) {
+          throw new Error('JWT_SECRET is not set');
+        }
+        const expiresInRaw = configService.get<string>('JWT_EXPIRES_IN');
+        const expiresIn = resolveExpiresIn(expiresInRaw, '7d');
+
+        return {
+          secret,
+          signOptions: {
+            expiresIn,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
   ],
@@ -28,3 +38,17 @@ import { PrismaModule } from '../prisma/prisma.module';
   exports: [AuthService],
 })
 export class AuthModule {}
+
+function resolveExpiresIn(
+  value: string | undefined,
+  fallback: StringValue | number,
+): StringValue | number {
+  if (!value) {
+    return fallback;
+  }
+  const numeric = Number(value);
+  if (!Number.isNaN(numeric) && value.trim() !== '') {
+    return numeric;
+  }
+  return value as StringValue;
+}
