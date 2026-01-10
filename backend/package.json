@@ -35,7 +35,7 @@
     "@nestjs/schedule": "^5.0.0",
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/websockets": "^11.0.1",
-    "@prisma/client": "^6.2.0",
+    "@prisma/client": "^6.19.1",
     "@types/cookie-parser": "^1.4.10",
     "axios": "^1.13.2",
     "bcrypt": "^5.1.1",
